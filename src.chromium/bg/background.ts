@@ -17,8 +17,21 @@ import * as WebReq from 'src/services/web-req.bg'
 import * as Sync from 'src/services/sync.bg'
 import * as Omnibox from 'src/services/omnibox.bg'
 import * as Styles from 'src/services/styles.bg'
+import {
+  markBackgroundFailed,
+  markBackgroundReady,
+  setupBackgroundLivenessListener,
+} from 'src/platform/background-ready'
 
-void (async function main() {
+// This listener is installed before any asynchronous startup work so a page can
+// wake the worker and wait until its state has been rehydrated.
+setupBackgroundLivenessListener()
+void main().then(markBackgroundReady).catch(error => {
+  markBackgroundFailed(error)
+  Logs.err('Background initialization failed', error)
+})
+
+async function main(): Promise<void> {
   Info.setInstanceType(E.InstanceType.bg)
   IPC.setInstanceType(E.InstanceType.bg)
   IPPC.setInstanceType(E.InstanceType.bg)
@@ -140,7 +153,7 @@ void (async function main() {
       cacheByWin: Tabs.cacheByWin,
     },
   })
-})()
+}
 
 function initToolbarButton(): void {
   browser.browserAction.onClicked.addListener((_, info): void => {
