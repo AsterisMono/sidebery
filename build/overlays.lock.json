@@ -88,6 +88,7 @@
   "src/sidebar/sidebar.vue": "a0307ef4c1858478f47b1823a163b5f1904db82f",
   "src/styles/page.setup/settings.storage.styl": "1604623b9bd378658565ab433bb00e59ca48486f",
   "src/styles/page.setup/setup.styl": "e5b0090b629fa2da9070f1eb07e808ba3e389a33",
+  "src/styles/sidebar/popup.context-menu.styl": "db236b067819642e60f87c3d5b56e0340f68fa9b",
   "src/styles/sidebar/sidebar.styl": "724e0dcb0dcf18186f7f69f3c8595be2deb039a1",
   "src/utils.ts": "f7ae5b88d20801014f9213ddaeb73989417b8454"
 }

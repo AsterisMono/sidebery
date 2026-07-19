@@ -77,6 +77,7 @@ describe('Chromium config sanitization', () => {
       resetContainerAssignments: 2,
       removedContainerMoveRules: 0,
       removedContainerShortcuts: 0,
+      localizedPanelNames: 0,
     })
     expect(config.nav).toEqual(['tabs', 'settings'])
     expect(config.panels['legacy-sync']).toBeUndefined()
@@ -118,6 +119,7 @@ describe('Chromium config sanitization', () => {
       resetContainerAssignments: 2,
       removedContainerMoveRules: 2,
       removedContainerShortcuts: 3,
+      localizedPanelNames: 0,
     })
 
     const tabs = config.panels.tabs
@@ -130,5 +132,49 @@ describe('Chromium config sanitization', () => {
         { id: 3, active: true, url: '^https://kept\\.example' },
       ],
     })
+  })
+
+  test('repairs persisted panel names that contain untranslated message IDs', () => {
+    const translations = {
+      'panel.tabs.title': { en: 'Tabs' },
+      'panel.bookmarks.title': { en: 'Bookmarks' },
+      'panel.history.title': { en: 'History' },
+    }
+    const previousTranslations = globalThis.translations
+    globalThis.translations = translations
+
+    const config = {
+      nav: ['tabs', 'bookmarks', 'history'],
+      panels: {
+        tabs: {
+          id: 'tabs',
+          type: PanelType.tabs,
+          name: 'panel.tabs.title',
+          newTabCtx: 'none',
+          dropTabCtx: 'none',
+          moveRules: [],
+          newTabBtns: [],
+        },
+        bookmarks: {
+          id: 'bookmarks',
+          type: PanelType.bookmarks,
+          name: 'panel.bookmarks.title',
+        },
+        history: {
+          id: 'history',
+          type: PanelType.history,
+          name: 'panel.history.title',
+        },
+      },
+    } as SidebarConfig
+
+    try {
+      expect(sanitizeSidebarConfigForChromium(config).localizedPanelNames).toBe(3)
+      expect(config.panels.tabs.name).toBe('Tabs')
+      expect(config.panels.bookmarks.name).toBe('Bookmarks')
+      expect(config.panels.history.name).toBe('History')
+    } finally {
+      globalThis.translations = previousTranslations
+    }
   })
 })

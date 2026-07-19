@@ -10,7 +10,10 @@ const asset = name => path.join(SRC_DIR, 'assets', name)
 const COPY = [
   { src: path.join(SRC_DIR, 'manifest.json'), dst: path.join(OUTPUT_DIR, 'manifest.json') },
   {
-    src: path.join(SRC_DIR, '_locales/dict.browser.json'),
+    src: [
+      path.join(SRC_DIR, '_locales/dict.browser.json'),
+      path.join(SRC_DIR, '_locales/dict.chromium.json'),
+    ],
     dst: path.join(OUTPUT_DIR, '_locales'),
     handler: handleLocales,
   },
@@ -37,7 +40,10 @@ async function build() {
 
 async function buildAndWatch() {
   await build()
-  const tasks = COPY.map(entry => ({ ...entry, files: [entry.src] }))
+  const tasks = COPY.map(entry => ({
+    ...entry,
+    files: Array.isArray(entry.src) ? entry.src : [entry.src],
+  }))
   Utils.watch(
     tasks,
     async changed => {
@@ -50,8 +56,11 @@ async function buildAndWatch() {
   )
 }
 
-async function handleLocales(srcPath, dstDir) {
-  const jsonData = JSON.parse(await fs.promises.readFile(srcPath, 'utf8'))
+async function handleLocales(srcPaths, dstDir) {
+  const jsonData = {}
+  for (const srcPath of srcPaths) {
+    Object.assign(jsonData, JSON.parse(await fs.promises.readFile(srcPath, 'utf8')))
+  }
   const languages = {}
   for (const [key, dictionary] of Object.entries(jsonData)) {
     if (!dictionary || typeof dictionary !== 'object') {

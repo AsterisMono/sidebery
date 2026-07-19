@@ -1,0 +1,21 @@
+# Keep the normal arrow cursor over Chromium context-menu items and their text labels.
+diff --git a/src/styles/sidebar/popup.context-menu.styl b/src/styles/sidebar/popup.context-menu.styl
+--- a/src/styles/sidebar/popup.context-menu.styl
++++ b/src/styles/sidebar/popup.context-menu.styl
+@@ -99,6 +99,8 @@
+   flex-grow: 1
+   flex-shrink: 0
+   border-radius: var(--ctx-menu-opt-border-radius)
++  &:not([data-inactive="true"]):not([data-separator="true"])
++    cursor: default
+   &:before
+     content: ''
+     position: absolute
+@@ -169,5 +171,7 @@
+   padding: 0 var(--ctx-menu-text-opt-inner-gap) 0 var(--ctx-menu-text-opt-inner-gap)
+   white-space: pre
++  &:not([data-inactive="true"]):not([data-separator="true"])
++    cursor: default
+   &:before
+     content: ''
+     position: absolute

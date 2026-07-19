@@ -1,12 +1,20 @@
 import type { SettingsState, SidebarConfig } from 'src/types'
 import { PanelType } from 'src/enums'
 import { DOMAIN_RE } from 'src/defaults'
+import { translate } from 'src/dict'
 
 export interface ChromiumSidebarSanitization {
   removedSyncPanels: number
   resetContainerAssignments: number
   removedContainerMoveRules: number
   removedContainerShortcuts: number
+  localizedPanelNames: number
+}
+
+const DEFAULT_PANEL_NAME_IDS: Partial<Record<PanelType, string>> = {
+  [PanelType.tabs]: 'panel.tabs.title',
+  [PanelType.bookmarks]: 'panel.bookmarks.title',
+  [PanelType.history]: 'panel.history.title',
 }
 
 /** Mutates and returns settings so Firefox-only sync and container paths stay disabled. */
@@ -84,6 +92,7 @@ export function sanitizeSidebarConfigForChromium(
   let resetContainerAssignments = 0
   let removedContainerMoveRules = 0
   let removedContainerShortcuts = 0
+  let localizedPanelNames = 0
 
   for (const [id, panel] of Object.entries(config.panels ?? {})) {
     if (panel?.type === PanelType.sync) {
@@ -91,6 +100,13 @@ export function sanitizeSidebarConfigForChromium(
       delete config.panels[id]
       continue
     }
+
+    const defaultNameId = DEFAULT_PANEL_NAME_IDS[panel?.type]
+    if (defaultNameId && panel.name === defaultNameId) {
+      panel.name = translate(defaultNameId)
+      localizedPanelNames++
+    }
+
     if (panel?.type !== PanelType.tabs) continue
 
     if (panel.newTabCtx !== 'none') {
@@ -124,5 +140,6 @@ export function sanitizeSidebarConfigForChromium(
     resetContainerAssignments,
     removedContainerMoveRules,
     removedContainerShortcuts,
+    localizedPanelNames,
   }
 }

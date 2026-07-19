@@ -1,0 +1,34 @@
+{
+  "panel_tabs_title": {
+    "en": "Tabs",
+    "fr": "Onglets",
+    "hu": "Lapok",
+    "pl": "Karty",
+    "ru": "Вкладки",
+    "zh_CN": "标签页",
+    "zh_TW": "分頁",
+    "ja": "タブ"
+  },
+  "panel_bookmarks_title": {
+    "en": "Bookmarks",
+    "de": "Lesezeichen",
+    "fr": "Marques-pages",
+    "hu": "Könyvjelzők",
+    "pl": "Zakładki",
+    "ru": "Закладки",
+    "zh_CN": "书签",
+    "zh_TW": "書籤",
+    "ja": "ブックマーク"
+  },
+  "panel_history_title": {
+    "en": "History",
+    "de": "Chronik",
+    "fr": "Historique",
+    "hu": "Előzmények",
+    "pl": "Historia",
+    "ru": "История",
+    "zh_CN": "历史",
+    "zh_TW": "歷史",
+    "ja": "履歴"
+  }
+}
