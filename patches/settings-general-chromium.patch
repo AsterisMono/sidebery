@@ -10,3 +10,18 @@ diff --git a/src/page.setup/components/settings.general.vue b/src/page.setup/com
      label="settings.sel_win_screenshots"
      dbg="selWinScreenshots"
      :value="Settings.state.selWinScreenshots"
+@@ -36,12 +37,14 @@
+     :default="DEFAULT_SETTINGS.updateSidebarTitle"
+     @update:value="Settings.saveDebounced(150)")
+   ToggleField(
++    v-if="false"
+     label="settings.mark_window"
+     dbg="markWindow"
+     v-model:value="Settings.state.markWindow"
+     :default="DEFAULT_SETTINGS.markWindow"
+     @update:value="Settings.saveDebounced(150)")
+   .sub-fields
++    v-if="false"
+     TextField.-inline(
+       label="settings.mark_window_preface"
+       or="---"
