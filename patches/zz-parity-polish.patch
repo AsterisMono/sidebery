@@ -1,0 +1,39 @@
+# Chromium drag MIME support, standard event fallback, and CSS fallback.
+diff --git a/src/utils.ts b/src/utils.ts
+--- a/src/utils.ts
++++ b/src/utils.ts
+@@ -476,4 +476,5 @@ export async function parseDragEvent(
+     if (types.includes('text/x-moz-url-data')) urlType = 'text/x-moz-url-data'
+     else if (types.includes('text/x-moz-url')) urlType = 'text/x-moz-url'
+     else if (types.includes('text/x-moz-text-internal')) urlType = 'text/x-moz-text-internal'
++    else if (types.includes('text/uri-list')) urlType = 'text/uri-list'
+ 
+@@ -506,3 +507,7 @@ export async function parseDragEvent(
+           result.url = urlAndTitle[0]
+           result.text = urlAndTitle[1]
++        } else if (value && urlType === 'text/uri-list') {
++          result.url = value
++            .split(/\r?\n/)
++            .find(line => line && !line.startsWith('#'))
+         } else if (isNativeTab && lastFocusedId !== undefined) {
+diff --git a/src/sidebar/sidebar.vue b/src/sidebar/sidebar.vue
+--- a/src/sidebar/sidebar.vue
++++ b/src/sidebar/sidebar.vue
+@@ -257,5 +257,7 @@ function onFocusIn(e: FocusEvent): void {
+ }
+ 
+ function onFocusOut(e: FocusEvent): void {
+-  if ((e as MozFocusEvent).explicitOriginalTarget === e.target && !DnD.reactive.isStarted) {
++  const explicitTarget = (e as Partial<MozFocusEvent>).explicitOriginalTarget ?? e.target
++
++  if (explicitTarget === e.target && !DnD.reactive.isStarted) {
+     if (Menu.isOpen) Menu.close()
+diff --git a/src/styles/page.setup/settings.storage.styl b/src/styles/page.setup/settings.storage.styl
+--- a/src/styles/page.setup/settings.storage.styl
++++ b/src/styles/page.setup/settings.storage.styl
+@@ -106,4 +106,5 @@
+     position: absolute
+     width: 100%
+     height: 100%
++    image-rendering: crisp-edges
+     image-rendering: -moz-crisp-edges

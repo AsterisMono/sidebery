@@ -140,3 +140,33 @@ that window ID. No step depends on a Firefox sidebar URL or `sidebar_action` API
   reconstructs the selected cached tree.
 - Terminate the worker and immediately choose each item; stable ID dispatch must work after cold
   start. Reload the extension twice and confirm no duplicate-ID errors appear.
+
+## MV3 injections and unloaded tabs
+
+- Alt-drag a link and bulk-open 20 links as unloaded; placeholders should appear without loading
+  the targets, retain their titles, and navigate to the real URL when activated.
+- Restore a snapshot and a bookmarks-backed panel containing unloaded tabs; confirm the same
+  placeholder/discard flow and restored tree relations.
+- Open group and URL placeholder pages and confirm their existing module script tags initialize
+  them directly with the correct color scheme; no scripting API injection targets extension pages.
+- Force-discard a page with a beforeunload handler and pause media on a normal web tab; confirm the
+  serialized-function and file-based MV3 scripting paths work without a `code:` injection.
+
+## M4 parity checklist
+
+- Boot/panel: install, open two windows, toggle each side panel, kill the worker, and repeat tab
+  create/move/group/fold/pin/close operations without duplicate or cross-window state.
+- Menus/keybindings/search: exercise DOM menus, action menus after a cold start, every listed
+  read-only command, sidebar search, and the `=` omnibox keyword. If Chrome rejects or does not
+  trigger `=`, change the manifest keyword to `sb` before release.
+- Drag and drop: test in-panel, cross-window, page-to-panel, tab-to-bookmarks, and external
+  `text/uri-list`/`text/plain` drops.
+- Data pages: test bookmarks/history, snapshot create/restore, unloaded placeholders, and group
+  pages with light/dark schemes.
+- Settings/locales: open every section, switch among all generated locales (`de`, `en`, `fr`,
+  `hu`, `ja`, `pl`, `ru`, `zh_CN`, `zh_TW`), and confirm no dead controls or console errors.
+
+The generated locale directory names are all Chrome-compatible. Remaining `-moz-user-select`,
+`-moz-osx-font-smoothing`, and `::-moz-focus-inner` declarations are harmless unknown fallbacks;
+the only Firefox-specific `image-rendering` value now has a standard fallback. Background favicon
+code contains no DOM/canvas use, and media injection remains file-based.
