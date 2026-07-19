@@ -24,8 +24,9 @@ rebuilt or lost whenever Chromium terminates and later restarts the MV3 backgrou
 - Tab event deferrals, cache debounce timers, favicon save timers, settings/storage debounces,
   sidebar active-panel debounce, and omnibox command debounce reset. Their next live event or
   startup load reconstructs the in-memory view, but the most recent delayed write can be lost.
-- Snapshot scheduling still uses `setTimeout`; it must move to a reasserted `chrome.alarms`
-  schedule. Snapshot auto-export converts Blob contents to `data:` URLs because
+- Snapshot scheduling uses one persistent named `chrome.alarms` alarm. Startup reasserts it,
+  setting changes recreate or clear it, and its module-level listener waits for the background
+  readiness barrier. Snapshot auto-export converts Blob contents to `data:` URLs because
   `URL.createObjectURL` is unavailable in a service worker; large-export behavior still needs
   browser-level verification.
 - Sync, containers, and request-routing state are not initialized on Chromium until their

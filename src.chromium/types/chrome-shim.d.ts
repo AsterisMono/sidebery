@@ -117,6 +117,7 @@ interface ChromiumAlarm {
   name: string
   scheduledTime: number
   periodInMinutes?: number
+  persistAcrossSessions?: boolean
 }
 
 interface ChromiumAlarmsApi {

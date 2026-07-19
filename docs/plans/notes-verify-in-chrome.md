@@ -77,3 +77,24 @@ that window ID. No step depends on a Firefox sidebar URL or `sidebar_action` API
   treated as ambiguous, so one or both windows can receive a new identity. This accepted
   degradation affects snapshot window grouping only; it must not cross-route sidebar IPC or
   restore another window's tree.
+
+## M3 persistence and snapshot alarms
+
+- Open three normal windows with different panels, nested trees, pinned tabs, custom tab
+  titles/colors, and discarded tabs. Wait for the cache write, terminate the extension worker
+  from `chrome://extensions` (or let it idle), then immediately create/move/close a tab. Confirm
+  the worker wakes behind the readiness barrier and every sidebar/tree remains intact.
+- Restart Chrome with those three windows restored. Confirm tab order, parent/child relations,
+  folds, panel assignments, custom titles/colors, pinned state, and discarded state are restored.
+  Confirm a cached `about:newtab` matches Chrome's `chrome://newtab/`, and activating a discarded
+  placeholder navigates to its real target.
+- After the restart, mutate only one window and inspect local `tabsDataCache`. Confirm entries for
+  the other two windows remain present; closing one window removes only its matched cache entry.
+- Enable automatic snapshots with a short supported interval. In the worker console, inspect
+  `await chrome.alarms.get('sidebery:snapshots')`: it must have the configured period and
+  `persistAcrossSessions: true`. Terminate the worker and confirm the alarm wakes it and creates a
+  snapshot after initialization. Restart Chrome and confirm the alarm remains/reasserts.
+- Change the snapshot interval and confirm the named alarm is recreated with the new period.
+  Disable automatic snapshots and confirm the named alarm is cleared.
+- Enable snapshot auto-export for JSON, Markdown, and both. Confirm downloads succeed from the
+  service worker through `data:` URLs without `URL.createObjectURL` errors.
