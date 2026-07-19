@@ -1,0 +1,121 @@
+# Sanitize sidebar configs at every load/import boundary and report removed sync panels once.
+diff --git a/src/services/sidebar-config.ts b/src/services/sidebar-config.ts
+--- a/src/services/sidebar-config.ts
++++ b/src/services/sidebar-config.ts
+@@ -5,5 +5,6 @@ import * as Logs from 'src/services/logs'
+ import * as Utils from 'src/utils'
+ import * as Store from 'src/services/storage'
++import { sanitizeSidebarConfigForChromium } from 'src/platform/config-sanitize'
+ 
+ export let reactive: T.SidebarConfig = {
+   nav: [],
+@@ -16,6 +17,7 @@ export function reactivate(r: T.Reactivator<T.SidebarConfig>) {
+ 
+ export async function loadSidebarConfig() {
+   const storage = await browser.storage.local.get<T.Stored>('sidebar')
++  if (storage.sidebar) sanitizeSidebarConfigForChromium(storage.sidebar)
+   if (storage.sidebar?.nav) reactive.nav = storage.sidebar.nav
+   if (storage.sidebar?.panels) {
+     // Normalize configs
+@@ -78,6 +80,7 @@ export function setupSidebarConfigListeners() {
+ 
+ export function updateSidebarConfig(newConfig?: T.SidebarConfig | null): void {
+   if (!newConfig?.nav?.length) newConfig = { nav: [], panels: {} }
++  sanitizeSidebarConfigForChromium(newConfig)
+ 
+   if (newConfig.nav) reactive.nav = newConfig.nav
+   if (newConfig.panels) {
+diff --git a/src/page.setup/components/popup.import-config.vue b/src/page.setup/components/popup.import-config.vue
+--- a/src/page.setup/components/popup.import-config.vue
++++ b/src/page.setup/components/popup.import-config.vue
+@@ -85,5 +85,7 @@ import * as SidebarConfig from 'src/services/sidebar-config.fg'
+ import * as IPC from 'src/services/ipc'
+ import * as Keybindings from 'src/services/keybindings.fg'
++import * as Notifications from 'src/services/notifications.fg'
++import { sanitizeSidebarConfigForChromium } from 'src/platform/config-sanitize'
+ import ToggleField from 'src/components/toggle-field.vue'
+ import LoadingDots from 'src/components/loading-dots.vue'
+ 
+@@ -441,6 +443,16 @@ async function importSettings(backup: BackupData) {
+ async function importSidebar(backup: BackupData, containersIds: IdMap = {}) {
+   if (!backup.sidebar) return
+ 
++  const { removedSyncPanels } = sanitizeSidebarConfigForChromium(backup.sidebar)
++  if (removedSyncPanels) {
++    Notifications.notify({
++      id: 'chromium-sync-panels-removed',
++      icon: '#icon_sync',
++      title: 'Sync panels were removed',
++      details: 'Sync is not available in the Chromium build.',
++    })
++  }
++
+   await SidebarConfig.loadSidebarConfig()
+ 
+   const nav = backup.sidebar?.nav ?? []
+diff --git a/src/services/sidebar.fg.ts b/src/services/sidebar.fg.ts
+--- a/src/services/sidebar.fg.ts
++++ b/src/services/sidebar.fg.ts
+@@ -23,5 +23,9 @@ import { turnOffBeforeRequestHandler, turnOnBeforeRequestHandler } from 'src/services/web-req.fg'
+ import * as SidebarConf from 'src/services/sidebar-config'
+ import * as Sync from 'src/services/sync.fg'
++import {
++  sanitizeSidebarConfigForChromium,
++  type ChromiumSidebarSanitization,
++} from 'src/platform/config-sanitize'
+ 
+ export interface SidebarReactiveState {
+   nav: ID[]
+@@ -181,6 +185,38 @@ export function registerHorizontalNavBarEl(el: HTMLElement): void {
+   horizontalNavBarEl = el
+ }
+ 
++const LEGACY_SYNC_NOTICE_KEY = 'chromiumLegacySyncPanelNoticeShown'
++
++async function handleSanitizedSidebarConfig(
++  sidebar: T.SidebarConfig,
++  result: ChromiumSidebarSanitization,
++  persist: boolean
++): Promise<void> {
++  const changed = Object.values(result).some(count => count > 0)
++  if (changed && persist) await browser.storage.local.set({ sidebar })
++  if (!result.removedSyncPanels) return
++
++  const stored = await browser.storage.local.get<Record<string, boolean>>(LEGACY_SYNC_NOTICE_KEY)
++  if (stored[LEGACY_SYNC_NOTICE_KEY]) return
++
++  Notifications.notify({
++    id: 'chromium-sync-panels-removed',
++    icon: '#icon_sync',
++    title: 'Sync panels were removed',
++    details: 'Sync is not available in the Chromium build.',
++  })
++  await browser.storage.local.set({ [LEGACY_SYNC_NOTICE_KEY]: true })
++}
++
++async function sanitizeLoadedSidebarConfig(
++  storage: T.Stored,
++  persist: boolean
++): Promise<void> {
++  if (!storage.sidebar) return
++  const result = sanitizeSidebarConfigForChromium(storage.sidebar)
++  await handleSanitizedSidebarConfig(storage.sidebar, result, persist)
++}
++
+ async function loadSidebarConfig() {
+   const msp = browser.storage.managed.get<T.Stored>('sidebar').catch(() => undefined)
+   const psp = browser.storage.local.get<T.Stored>('lastFocusedActivePanelId').catch(() => undefined)
+@@ -195,11 +227,13 @@ async function loadSidebarConfig() {
+ 
+   const [ms, ps, ls] = await Promise.all([msp, psp, lsp])
+   if (ms?.sidebar) {
++    await sanitizeLoadedSidebarConfig(ms, false)
+     if (ps?.lastFocusedActivePanelId) Object.assign(ms, ps)
+     return ms
+   }
+ 
+   if (ls?.sidebar) {
++    await sanitizeLoadedSidebarConfig(ls, true)
+     if (ps?.lastFocusedActivePanelId) Object.assign(ls, ps)
+     return ls
+   }
