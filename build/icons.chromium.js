@@ -6,8 +6,9 @@ import { Resvg } from '@resvg/resvg-js'
 const SOURCE = path.resolve('src/assets/logo.svg')
 const OUTPUT_DIR = path.resolve('addon-chromium/assets')
 const SIZES = [16, 32, 48, 128]
+const IS_DEV = process.argv.includes('--dev')
 
-async function main() {
+async function build() {
   const svg = await fs.promises.readFile(SOURCE)
   await fs.promises.mkdir(OUTPUT_DIR, { recursive: true })
 
@@ -20,7 +21,21 @@ async function main() {
   console.log('Chromium icons: Done')
 }
 
-main().catch(err => {
+async function main() {
+  await build()
+  if (!IS_DEV) return
+
+  let timer
+  fs.watch(SOURCE, () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => build().catch(reportError), 40)
+  })
+  console.log('Chromium icons: Watching')
+}
+
+function reportError(err) {
   console.error(`Chromium icons failed: ${err.stack ?? err}`)
   process.exitCode = 1
-})
+}
+
+main().catch(reportError)
