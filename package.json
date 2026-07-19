@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "node build/all.vite.js --dev",
+    "dev.chromium": "node build/all.vite.chromium.js --dev",
+    "dev.chromium.run": "node build/webext.run.chromium.js --dev",
     "stage.chromium": "node build/stage.chromium.js",
     "icons.chromium": "node build/icons.chromium.js",
     "dev.styles": "node build/styles.js --dev",
@@ -20,6 +22,8 @@
     "build.ext": "web-ext build --source-dir ./addon -a dist/ -i __tests__",
     "build.run": "node build/webext.run.js",
     "build": "node build/all.vite.js",
+    "build.chromium": "node build/all.vite.chromium.js",
+    "build.ext.chromium": "npm run build.chromium && node build/zip.chromium.js",
     "clear.npm": "rm -rf node_modules package-lock.json",
     "clear": "rm -rf addon",
     "lint.eslint": "eslint ./src",
