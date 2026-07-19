@@ -28,21 +28,25 @@ The Chromium build is materialized in this order:
 Treat these paths accordingly:
 
 - `src/`: upstream Firefox source. Keep unchanged for Chromium work.
-- `src.chromium/`: preferred home for Chromium replacements, adapters, stubs, and additions.
-  A shadowing module must preserve the upstream module's export shape.
-- `patches/`: last-resort, surgical changes to upstream files. Patches apply to the staging tree,
-  never to the working-tree `src/`.
+- `src.chromium/`: home for Chromium-only adapters, stubs, additions, and other new modules.
+  Use it to shadow an upstream file only when a narrow patch is not practical. A shadowing module
+  must preserve the upstream module's export shape.
+- `patches/`: preferred home for narrow, surgical Chromium changes to existing upstream files.
+  Patches apply to the staging tree, never to the working-tree `src/`.
 - `build/*.chromium.*` and other new Chromium build files: Chromium-only build behavior.
 - `build/overlays.lock.json`: reviewed upstream baselines for shadowed, patched, and forked files.
 - `.staging-chromium/`, `addon/`, `addon-chromium/`, and `dist/`: generated output; never edit
   them as source and do not commit them.
 
-For a Chromium-specific change, use this preference order:
+For a Chromium-specific change, choose its home by whether it changes an existing upstream file:
 
-1. Add the narrowest practical overlay under `src.chromium/`.
-2. Add a small deterministic Chromium build-time transform.
-3. Add a minimal patch under `patches/` only when an overlay would copy too much volatile
-   upstream code.
+1. Put Chromium-only additions and new modules under `src.chromium/`.
+2. To change an existing upstream file, first add a narrow, purpose-focused patch under
+   `patches/`.
+3. Shadow the complete upstream file under `src.chromium/` only when a patch cannot reasonably
+   express the divergence. Keep the replacement as small and stable as the module boundary allows.
+4. Reserve deterministic Chromium build-time transforms for build/materialization behavior that
+   is not appropriately expressed as source code or a staging patch.
 
 Avoid full-file overlays of large or frequently changing upstream files. Keep patches focused,
 independent where possible, and valid in lexical order. Do not change Firefox behavior. Features
@@ -61,12 +65,12 @@ or otherwise account for it in the overlay.
 Do not assume a successful `npm run stage.chromium` or `npm run build.chromium` proves overlays are
 current; those commands can succeed while building a stale shadowing file. Run
 `npm run check.overlays` after every upstream merge and before accepting Chromium work. Never run
-`npm run check.overlays.update` until every reported upstream change has been reviewed. Prefer
-narrow overlays and patches because they reduce this manual reconciliation surface.
+`npm run check.overlays.update` until every reported upstream change has been reviewed. Prefer new
+Chromium-only modules and narrow patches because they reduce this manual reconciliation surface.
 
 Changes to shared upstream-owned files such as `package.json` or `.gitignore` must be small and
-additive. Before modifying any other shared/root file, first determine why an overlay, transform,
-new Chromium-only file, or patch cannot express the change.
+additive. Before modifying any other shared/root file, first determine why a narrow patch, new
+Chromium-only file, full-file shadow, or build transform cannot express the change.
 
 ## Platform API research is mandatory
 
