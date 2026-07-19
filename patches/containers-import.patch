@@ -1,0 +1,101 @@
+# Ignore Firefox container data and permissions when importing a backup on Chromium.
+diff --git a/src/page.setup/components/popup.import-config.vue b/src/page.setup/components/popup.import-config.vue
+--- a/src/page.setup/components/popup.import-config.vue
++++ b/src/page.setup/components/popup.import-config.vue
+@@ -14,15 +14,8 @@
+     label="settings.backup_menu"
+     v-model:value="state.menu"
+     :data-done="state.menuDone"
+     :inactive="menuInactive || !!state.errorMsg")
+     .error-note(v-if="state.menuError") {{state.menuError}}
+-  ToggleField(
+-    label="settings.backup_containers"
+-    v-model:value="state.containers"
+-    :data-done="state.containersDone"
+-    :inactive="containersInactive || !!state.errorMsg"
+-    @update:value="checkPermissions")
+-    .error-note(v-if="state.containersError") {{state.containersError}}
+   ToggleField(
+     label="settings.backup_nav"
+     v-model:value="state.nav"
+@@ -130,8 +123,7 @@ const state = reactive({
+   importing: false,
+   imported: false,
+ })
+ 
+-let permWebData = false
+ let permTabHide = false
+ let permDownloads = false
+ 
+@@ -163,11 +155,7 @@ const stylesInactive = computed((): boolean => {
+   const data = props.importedData
+   return !data.sidebarCSS && !data.groupCSS
+ })
+-const containersInactive = computed((): boolean => {
+-  const data = props.importedData
+-  const cKeysLen = data.containers ? Object.keys(data.containers).length : 0
+-  return !cKeysLen
+-})
++const containersInactive = computed((): boolean => true)
+ const snapshotsInactive = computed((): boolean => {
+   const data = props.importedData
+   return !data.snapshots?.length
+@@ -364,36 +352,18 @@ async function importData(): Promise<void> {
+ 
+ function checkPermissions(): void {
+   const backup = props.importedData
+-  let webData = false
+   let tabsHide = false
+   let downloads = false
+-  permWebData = false
+   permTabHide = false
+   permDownloads = false
+   state.permNeeded = false
+ 
+-  const containers = backup.containers
+-  if (state.containers && containers) {
+-    for (let ctr of Object.values(containers)) {
+-      if (ctr.proxified) webData = true
+-      if (ctr.reopenRulesActive) webData = true
+-      if (ctr.userAgentActive) webData = true
+-
+-      if (webData) break
+-    }
+-  }
+-
+   if (state.settings && backup.settings) {
+     if (backup.settings.hideInact) tabsHide = true
+     if (backup.settings.hideFoldedTabs) tabsHide = true
+-    if (backup.settings.newTabCtxReopen) webData = true
+     if (backup.settings.snapAutoExport) downloads = true
+   }
+ 
+-  if (webData && !Permissions.reactive.webData) {
+-    permWebData = true
+-    state.permNeeded = true
+-  }
+   if (tabsHide && !Permissions.reactive.tabHide) {
+     permTabHide = true
+     state.permNeeded = true
+@@ -405,12 +375,8 @@ function checkPermissions(): void {
+ }
+ 
+ function requestPermissions(): void {
+-  const origins = ['<all_urls>']
+-  const permissions = ['webRequest', 'webRequestBlocking', 'proxy']
+-  if (permWebData) {
+-    origins.push('<all_urls>')
+-    permissions.push('webRequest', 'webRequestBlocking')
+-  }
++  const origins: string[] = []
++  const permissions: string[] = []
+   if (permTabHide) permissions.push('tabHide')
+   if (permDownloads) permissions.push('downloads')
+   if (!origins.length && !permissions.length) return
+@@ -417,6 +383,5 @@ function requestPermissions(): void {
+ 
+   browser.permissions.request({ origins, permissions }).then((allowed: boolean) => {
+-    if (permWebData) permWebData = !allowed
+     if (permTabHide) permTabHide = !allowed
+     if (permDownloads) permDownloads = !allowed
+     state.permNeeded = !allowed
