@@ -1,16 +1,14 @@
 diff --git a/src/services/snapshots.bg.ts b/src/services/snapshots.bg.ts
 --- a/src/services/snapshots.bg.ts
 +++ b/src/services/snapshots.bg.ts
-@@ -12,6 +12,8 @@
- import * as Containers from 'src/services/containers.bg'
+@@ -10,5 +10,6 @@
+ import * as IPC from 'src/services/ipc'
  import { ItemInfo } from 'src/types/tabs'
  import * as SidebarConf from 'src/services/sidebar-config'
 +import { waitForBackgroundReady } from 'src/platform/background-ready'
-+import { blobToDataUrl } from 'src/platform/data-url'
  
  import { GLOB_PINNED_ID, MAX_SIZE_LIMIT } from 'src/services/snapshots'
- import { getNormalizedSnapshot, minimizeSnapshot, prepareExport } from 'src/services/snapshots'
-@@ -26,6 +28,17 @@ export const Snapshots = {
+@@ -25,6 +26,17 @@
  
  const MIN_SNAP_INTERVAL = 60_000
  const MIN_LIMITING_COUNT = 1
@@ -28,7 +26,7 @@ diff --git a/src/services/snapshots.bg.ts b/src/services/snapshots.bg.ts
  
  /**
   * Create base snapshot
-@@ -139,7 +152,7 @@ export async function createSnapshot(auto = false): Promise<Snapshot | undefined>
+@@ -138,7 +150,7 @@
    }
  
    if (Settings.state.snapAutoExport) {
@@ -37,40 +35,7 @@ diff --git a/src/services/snapshots.bg.ts b/src/services/snapshots.bg.ts
    }
  
    minimizeSnapshot(stored.snapshots, currentSnapshot)
-@@ -189,7 +202,7 @@ function getExportPath(expInfo: SnapExportInfo) {
-   return normPath
- }
- 
--export function exportSnapshot(snapshot: NormalizedSnapshot) {
-+export async function exportSnapshot(snapshot: NormalizedSnapshot): Promise<void> {
-   if (!browser?.downloads) return
- 
-   const expType = Settings.state.snapAutoExportType
-@@ -202,17 +215,19 @@ export function exportSnapshot(snapshot: NormalizedSnapshot) {
-   const path = getExportPath(expInfo)
- 
-   if (expInfo.jsonFile) {
--    browser.downloads.download({
--      url: URL.createObjectURL(expInfo.jsonFile),
-+    const url = await blobToDataUrl(expInfo.jsonFile)
-+    await browser.downloads.download({
-+      url,
-       filename: `${path}.json`,
-       conflictAction: 'overwrite',
-       saveAs: false,
-     })
-   }
- 
-   if (expInfo.mdFile) {
--    browser.downloads.download({
--      url: URL.createObjectURL(expInfo.mdFile),
-+    const url = await blobToDataUrl(expInfo.mdFile)
-+    await browser.downloads.download({
-+      url,
-       filename: `${path}.md`,
-       conflictAction: 'overwrite',
-       saveAs: false,
-@@ -245,26 +260,30 @@ function isSnapshotRedundant(prevSnapshot: Snapshot, snapshot: Snapshot): boolean {
+@@ -253,26 +265,27 @@
  }
  
  export async function scheduleSnapshots(): Promise<void> {
@@ -85,10 +50,7 @@ diff --git a/src/services/snapshots.bg.ts b/src/services/snapshots.bg.ts
 +  }
 +
 +  const periodInMinutes = interval / 60_000
-+  if (
-+    alarm?.periodInMinutes === periodInMinutes &&
-+    alarm.persistAcrossSessions === true
-+  ) {
++  if (alarm?.periodInMinutes === periodInMinutes && alarm.persistAcrossSessions === true) {
 +    return
 +  }
  
