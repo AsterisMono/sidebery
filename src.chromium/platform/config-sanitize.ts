@@ -11,6 +11,14 @@ export interface ChromiumSidebarSanitization {
 
 /** Mutates and returns settings so Firefox-only sync and container paths stay disabled. */
 export function sanitizeSettingsForChromium<T extends Partial<SettingsState>>(settings: T): T {
+  if (settings.colorScheme === 'ff') settings.colorScheme = 'sys'
+  settings.ctxMenuNative = false
+  settings.previewTabs = false
+  settings.selWinScreenshots = false
+  settings.markWindow = false
+  settings.hideInact = false
+  settings.hideFoldedTabs = false
+  settings.hideUnloadedTabs = false
   settings.subPanelSync = false
   settings.syncName = ''
   settings.syncUseFirefox = false

@@ -23,6 +23,14 @@ describe('Chromium config sanitization', () => {
       tabDoubleClick: 'clear_cookies',
       tabLongLeftClick: 'clear_cookies',
       tabLongRightClick: 'clear_cookies',
+      colorScheme: 'ff',
+      ctxMenuNative: true,
+      previewTabs: true,
+      selWinScreenshots: true,
+      markWindow: true,
+      hideInact: true,
+      hideFoldedTabs: true,
+      hideUnloadedTabs: true,
     } as SettingsState
 
     expect(sanitizeSettingsForChromium(settings)).toBe(settings)
@@ -44,6 +52,14 @@ describe('Chromium config sanitization', () => {
       tabDoubleClick: 'none',
       tabLongLeftClick: 'none',
       tabLongRightClick: 'none',
+      colorScheme: 'sys',
+      ctxMenuNative: false,
+      previewTabs: false,
+      selWinScreenshots: false,
+      markWindow: false,
+      hideInact: false,
+      hideFoldedTabs: false,
+      hideUnloadedTabs: false,
     })
   })
 

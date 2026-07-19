@@ -1,0 +1,13 @@
+# Firefox browser-theme color scheme is unavailable on Chromium.
+diff --git a/src/page.setup/components/settings.appearance.vue b/src/page.setup/components/settings.appearance.vue
+--- a/src/page.setup/components/settings.appearance.vue
++++ b/src/page.setup/components/settings.appearance.vue
+@@ -56,7 +56,7 @@
+     v-model:value="Settings.state.colorScheme"
+     dbg="colorScheme"
+     :default="DEFAULT_SETTINGS.colorScheme"
+-    :opts="Settings.getOpts('colorScheme')"
++    :opts="Settings.getOpts('colorScheme').filter(option => option !== 'ff')"
+     @update:value="onColorSchemeUpdate")
+   .note-field
+     .label {{translate('settings.appearance_notes_title')}}
