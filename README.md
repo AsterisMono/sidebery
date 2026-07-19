@@ -1,3 +1,46 @@
+> [!NOTE]
+> ## About this fork
+>
+> This fork of [Sidebery](https://github.com/mbnuqw/sidebery) adds support for Chromium browsers.
+>
+> **AI-generated content disclosure:** This code was generated with GPT-5.6 under the direction of
+> the project maintainers.
+>
+> ### Overlay design
+>
+> The central idea is to treat upstream Sidebery as an unchanged input. Chromium-specific behavior
+> is composed on top during the build instead of being mixed into the Firefox source. This keeps
+> upstream merges reviewable and avoids changing the Firefox build.
+>
+> Changes are separated by purpose:
+>
+> - `src.chromium/` contains Chromium-only modules, adapters, and stubs. A file matching a path in
+>   `src/` is a complete replacement, so full-file shadows are kept to a minimum.
+> - `patches/` contains narrow changes to existing upstream files and is applied in lexical order.
+> - `build/*.chromium.*` handles Chromium-only staging, bundling, and packaging.
+>
+> The build materializes these layers in a disposable staging tree:
+>
+> 1. Copy `src/` to `.staging-chromium/src/`.
+> 2. Overlay Chromium files from `src.chromium/`.
+> 3. Apply ordered patches from `patches/`.
+> 4. Build the staged Manifest V3 extension in `addon-chromium/`.
+>
+> This design trades a small amount of build complexity for isolated platform differences and
+> easier upstream synchronization. `npm run check.overlays` detects upstream changes beneath
+> reviewed overlays and patches so they can be reconciled deliberately. See
+> [`docs/chromium-fork.md`](docs/chromium-fork.md) for maintenance and
+> [`docs/migrate-plan.md`](docs/migrate-plan.md) for design decisions.
+>
+> ### Build artifacts
+>
+> ```sh
+> npm install
+> npm run check.overlays
+> npm run build.chromium
+> npm run build.ext.chromium
+> ```
+
 <div align="center">
 
 <img src="docs/assets/readme-logo.svg" height="96" alt="Sidebery">
@@ -263,9 +306,12 @@ Result:
 
 > Prerequisites: latest LTS Node.js version
 
-1. Install dependencies: `npm install`
-2. Build all parts of Add-on: `npm run build`
-3. Create Add-on archive in `./dist`: `npm run build.ext`
+Install dependencies with `npm install`.
+
+### Firefox
+
+1. Build all parts of the Add-on: `npm run build`
+2. Create the Add-on archive in `./dist`: `npm run build.ext`
 
 After creating the Add-on archive, you can then use the version in Firefox as follows:
 
