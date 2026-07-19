@@ -54,6 +54,7 @@ let tabsCreate: ReturnType<typeof vi.fn>
 let tabsUpdate: ReturnType<typeof vi.fn>
 let tabsDiscard: ReturnType<typeof vi.fn>
 let tabsHighlight: ReturnType<typeof vi.fn>
+let windowsCreate: ReturnType<typeof vi.fn>
 let windowsOnRemoved: ReturnType<typeof createEvent<(windowId: ID) => void>>
 let sessionStorage: ReturnType<typeof createStorageArea>
 let scriptingExecute: ReturnType<typeof vi.fn>
@@ -77,6 +78,7 @@ async function loadShim(): Promise<typeof browser> {
   tabsUpdate = vi.fn().mockImplementation(async (id, details) => ({ id, windowId: 7, ...details }))
   tabsDiscard = vi.fn().mockImplementation(async id => ({ id, windowId: 7, discarded: true }))
   tabsHighlight = vi.fn().mockResolvedValue({ id: 7 })
+  windowsCreate = vi.fn().mockResolvedValue({ id: 43, incognito: false })
   windowsOnRemoved = createEvent<(windowId: ID) => void>()
   sessionStorage = createStorageArea()
   scriptingExecute = vi.fn().mockResolvedValue([])
@@ -103,7 +105,7 @@ async function loadShim(): Promise<typeof browser> {
       getCurrent: vi.fn().mockResolvedValue({ id: 42, focused: true, incognito: false }),
       getLastFocused: vi.fn().mockResolvedValue({ id: 77, focused: true, incognito: false }),
       update: vi.fn(),
-      create: vi.fn(),
+      create: windowsCreate,
     },
     runtime: {
       getContexts: runtimeGetContexts,
@@ -142,7 +144,10 @@ async function loadShim(): Promise<typeof browser> {
     },
     omnibox: {},
     i18n: {},
-    extension: { inIncognitoContext: false },
+    extension: {
+      inIncognitoContext: false,
+      isAllowedIncognitoAccess: vi.fn().mockResolvedValue(true),
+    },
     notifications: {},
   }
 
@@ -264,6 +269,35 @@ describe('tabs creation and activation semantics', () => {
 
     await browser.tabs.discard(11)
     expect(tabsDiscard).toHaveBeenNthCalledWith(3, 11)
+  })
+})
+
+describe('incognito window creation', () => {
+  test('rejects before creating a window when incognito access is disabled', async () => {
+    vi.mocked(chrome.extension.isAllowedIncognitoAccess).mockResolvedValueOnce(false)
+
+    await expect(browser.windows.create({ incognito: true })).rejects.toThrow(
+      'Extension does not have permission for incognito mode'
+    )
+    expect(windowsCreate).not.toHaveBeenCalled()
+  })
+
+  test('creates an incognito window when access is enabled', async () => {
+    windowsCreate.mockResolvedValueOnce({ id: 44, incognito: true })
+
+    await expect(browser.windows.create({ incognito: true })).resolves.toEqual({
+      id: 44,
+      incognito: true,
+    })
+    expect(windowsCreate).toHaveBeenCalledWith({ incognito: true })
+  })
+
+  test('rejects an empty native creation result', async () => {
+    windowsCreate.mockResolvedValueOnce(null)
+
+    await expect(browser.windows.create({})).rejects.toThrow(
+      'Chromium did not return the created window'
+    )
   })
 })
 

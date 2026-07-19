@@ -30,5 +30,17 @@
     "zh_CN": "历史",
     "zh_TW": "歷史",
     "ja": "履歴"
+  },
+  "notif_open_private_windows_err": {
+    "en": "Cannot open window",
+    "fr": "Impossible d’ouvrir la fenêtre",
+    "zh_CN": "无法打开窗口",
+    "zh_TW": "無法開啟視窗"
+  },
+  "notif_open_private_windows_err_details": {
+    "en": "Extension does not have permission for incognito mode",
+    "fr": "L’extension n’a pas les permissions nécessaires pour le mode de navigation privé",
+    "zh_CN": "扩展没有在隐私窗口中运行的权限",
+    "zh_TW": "擴充套件沒有於隱私視窗中執行的權限"
   }
 }

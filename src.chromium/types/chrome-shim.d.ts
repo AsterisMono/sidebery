@@ -18,6 +18,10 @@ type ChromiumTabsApi = Omit<typeof browser.tabs, 'onUpdated'> & {
 }
 type ChromiumWindowsApi = typeof browser.windows
 
+type ChromiumExtensionApi = typeof browser.extension & {
+  isAllowedIncognitoAccess(): Promise<boolean>
+}
+
 interface ChromiumExtensionContext {
   contextId: string
   contextType: 'TAB' | 'POPUP' | 'BACKGROUND' | 'OFFSCREEN_DOCUMENT' | 'SIDE_PANEL'
@@ -157,7 +161,7 @@ interface ChromiumApi {
   permissions: typeof browser.permissions
   omnibox: typeof browser.omnibox
   i18n: typeof browser.i18n
-  extension: typeof browser.extension
+  extension: ChromiumExtensionApi
   notifications: ChromiumNotificationsApi
 }
 

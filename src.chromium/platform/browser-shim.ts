@@ -221,7 +221,12 @@ const windows = {
       cookieStoreId: _cookieStoreId,
       ...chromiumDetails
     } = details
-    return chrome.windows.create(chromiumDetails)
+    if (chromiumDetails.incognito && !(await chrome.extension.isAllowedIncognitoAccess())) {
+      throw new Error('Extension does not have permission for incognito mode')
+    }
+    const created = await chrome.windows.create(chromiumDetails)
+    if (!created) throw new Error('Chromium did not return the created window')
+    return created
   },
 }
 
