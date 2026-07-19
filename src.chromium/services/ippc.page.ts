@@ -54,18 +54,19 @@ export async function init<R, I extends InstanceType>(
 export async function isInDefaultContainer(): Promise<boolean> {
   let timeout: number | undefined
   try {
-    const response = await Promise.race([
+    await Promise.race([
       browser.runtime.sendMessage(createBackgroundPing()),
-      new Promise<false>(resolve => {
-        timeout = setTimeout(() => resolve(false), 5_000)
+      new Promise<void>(resolve => {
+        timeout = setTimeout(resolve, 5_000)
       }),
     ])
-    return response === true
   } catch {
-    return false
+    // The ping is only a wake/readiness hint. Chromium has no non-default
+    // container context, so a failed worker start must not select hash IPC.
   } finally {
     clearTimeout(timeout)
   }
+  return true
 }
 
 export function onMsg<T extends InstanceType, A extends keyof T.Actions>(msg: T.Message<T, A>) {
