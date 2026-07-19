@@ -1,0 +1,72 @@
+# Chromium has no cookies permission; keep legacy actions and imported menu entries inert.
+diff --git a/src/services/tabs.fg.ts b/src/services/tabs.fg.ts
+--- a/src/services/tabs.fg.ts
++++ b/src/services/tabs.fg.ts
+@@ -1470,66 +1470,7 @@ export async function bookmarkTabs(tabIds: ID[], dstId?: ID): Promise<void> {
+  * Clear all cookies of tab urls
+  */
+ export async function clearTabsCookies(tabIds: ID[]): Promise<void> {
+-  if (!Permissions.reactive.webData) {
+-    const result = await Permissions.request('<all_urls>')
+-    if (!result) return
+-  }
+-
+-  for (const tabId of tabIds) {
+-    const tab = Tabs.byId[tabId]
+-    if (!tab) continue
+-
+-    const url = new URL(tab.url)
+-    const domain = url.hostname.split('.').slice(-2).join('.')
+-
+-    if (!domain) {
+-      Notifications.notify({
+-        lvl: 'err',
+-        icon: '#icon_cookie',
+-        title: translate('notif.cc.err'),
+-        details: `${translate('notif.cc.err_url')}"${decodeURI(tab.url)}"`,
+-      })
+-      continue
+-    }
+-
+-    tab.reactive.status = TabStatus.Loading
+-
+-    const cookies = await browser.cookies.getAll({
+-      domain: domain,
+-      storeId: tab.cookieStoreId,
+-    })
+-    const fpcookies = await browser.cookies.getAll({
+-      firstPartyDomain: domain,
+-      storeId: tab.cookieStoreId,
+-    })
+-
+-    const clearing = cookies.concat(fpcookies).map(c => {
+-      return browser.cookies.remove({
+-        storeId: tab.cookieStoreId,
+-        url: tab.url,
+-        name: c.name,
+-      })
+-    })
+-
+-    Promise.all(clearing)
+-      .then(() => {
+-        Notifications.notify({
+-          icon: '#icon_cookie',
+-          title: translate('notif.cc.ok'),
+-          details: domain,
+-        })
+-        tab.reactive.status = Tabs.getStatus(tab)
+-      })
+-      .catch(() => {
+-        Notifications.notify({
+-          lvl: 'err',
+-          icon: '#icon_cookie',
+-          title: translate('notif.cc.err'),
+-          details: domain,
+-        })
+-        tab.reactive.status = Tabs.getStatus(tab)
+-      })
+-  }
++  void tabIds
+ }
+ 
+ export function sortTabIds(tabIds: ID[], reverse?: boolean): void {
