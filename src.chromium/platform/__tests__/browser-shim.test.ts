@@ -52,6 +52,7 @@ let tabsOnActivated: ReturnType<typeof createEvent<(info: { tabId: ID; windowId:
 let tabsOnRemoved: ReturnType<typeof createEvent<browser.tabs.RemovedListener>>
 let tabsCreate: ReturnType<typeof vi.fn>
 let tabsUpdate: ReturnType<typeof vi.fn>
+let tabsHighlight: ReturnType<typeof vi.fn>
 let windowsOnRemoved: ReturnType<typeof createEvent<(windowId: ID) => void>>
 let sessionStorage: ReturnType<typeof createStorageArea>
 let scriptingExecute: ReturnType<typeof vi.fn>
@@ -69,6 +70,7 @@ async function loadShim(): Promise<typeof browser> {
   tabsOnRemoved = createEvent<browser.tabs.RemovedListener>()
   tabsCreate = vi.fn().mockImplementation(async details => ({ id: 99, windowId: 7, ...details }))
   tabsUpdate = vi.fn().mockImplementation(async (id, details) => ({ id, windowId: 7, ...details }))
+  tabsHighlight = vi.fn().mockResolvedValue({ id: 7 })
   windowsOnRemoved = createEvent<(windowId: ID) => void>()
   sessionStorage = createStorageArea()
   scriptingExecute = vi.fn().mockResolvedValue([])
@@ -85,6 +87,7 @@ async function loadShim(): Promise<typeof browser> {
       query: vi.fn().mockResolvedValue([{ id: 10, windowId: 7, active: true }]),
       create: tabsCreate,
       update: tabsUpdate,
+      highlight: tabsHighlight,
     },
     windows: {
       WINDOW_ID_CURRENT: -2,
@@ -191,6 +194,13 @@ describe('tabs creation and activation semantics', () => {
 
     await browser.tabs.update(99, { active: true, successorTabId: 10 })
     expect(tabsUpdate).toHaveBeenCalledWith(99, { active: true })
+
+    await browser.tabs.update(99, { openerTabId: 99 })
+    expect(tabsUpdate).toHaveBeenLastCalledWith(99, {})
+
+    await browser.tabs.highlight({ windowId: 7, populate: false, tabs: [1, 2] })
+    expect(tabsHighlight).toHaveBeenCalledWith({ windowId: 7, tabs: [1, 2] })
+    await expect(browser.tabs.warmup(99)).resolves.toBeUndefined()
   })
 
   test('adds Firefox previousTabId to Chrome activation events', async () => {
@@ -203,6 +213,11 @@ describe('tabs creation and activation semantics', () => {
     expect(listener).toHaveBeenNthCalledWith(1, { tabId: 11, windowId: 7, previousTabId: 10 })
     expect(listener).toHaveBeenNthCalledWith(2, { tabId: 12, windowId: 7, previousTabId: 11 })
   })
+})
+
+test('provides an inert Firefox history title event', () => {
+  const listener = vi.fn()
+  expect(() => browser.history.onTitleChanged.addListener(listener)).not.toThrow()
 })
 
 describe('sessions values', () => {

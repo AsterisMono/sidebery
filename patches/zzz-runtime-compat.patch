@@ -1,0 +1,19 @@
+# Missing session metadata is normal on first Chromium launch; use the fallback panel quietly.
+diff --git a/src/services/tabs.fg.ts b/src/services/tabs.fg.ts
+--- a/src/services/tabs.fg.ts
++++ b/src/services/tabs.fg.ts
+@@ -516,5 +516,3 @@ function restoreTab(
+     if (props.customTitle) tab.customTitle = props.customTitle
+     if (props.customColor) tab.reactive.customColor = tab.customColor = props.customColor
+-  } else {
+-    Logs.warn(`Tabs.restoreTab: no props for: "${tab.id} i${tab.index} url${tab.url}"`)
+   }
+@@ -537,5 +535,7 @@ function restoreTab(
+     }
+   } else {
+     // Panel is not found
+-    Logs.warn(`Tabs.restoreTab: cannot find panel: "${props?.panelId}"; tab index: ${tab.index}`)
++    if (props) {
++      Logs.warn(`Tabs.restoreTab: cannot find panel: "${props.panelId}"; tab index: ${tab.index}`)
++    }
+     const parentTab = Tabs.byId[tab.parentId]

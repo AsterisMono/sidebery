@@ -160,8 +160,17 @@ const tabs = {
 
   async update(tabId: ID, details: browser.tabs.UpdateProperties): Promise<browser.tabs.Tab> {
     const { successorTabId: _successorTabId, ...chromiumDetails } = details
+    if (chromiumDetails.openerTabId === tabId) delete chromiumDetails.openerTabId
     return chrome.tabs.update(tabId, chromiumDetails)
   },
+
+  async highlight(details: browser.tabs.HighlightInfo): Promise<browser.windows.Window> {
+    const { populate: _populate, ...chromiumDetails } = details
+    return chrome.tabs.highlight(chromiumDetails)
+  },
+
+  // Firefox-only speculative loading hint; Chromium manages tab warmup itself.
+  async warmup(_tabId: ID): Promise<void> {},
 
   // Chromium selects successor tabs natively.
   moveInSuccession: async (): Promise<void> => {},
@@ -437,13 +446,19 @@ const bookmarks = {
   },
 }
 
+const history = {
+  ...chrome.history,
+  // Firefox-only event. Chrome exposes visits/removals but no title-change event.
+  onTitleChanged: inertEvent,
+}
+
 const browserShim = {
   tabs,
   windows,
   runtime,
   storage,
   bookmarks,
-  history: chrome.history,
+  history,
   downloads: chrome.downloads,
   permissions: chrome.permissions,
   sessions,
