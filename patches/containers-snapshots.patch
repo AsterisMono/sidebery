@@ -1,0 +1,95 @@
+# Restore Firefox snapshots without recreating contextual identities on Chromium.
+diff --git a/src/services/snapshots.bg.ts b/src/services/snapshots.bg.ts
+--- a/src/services/snapshots.bg.ts
++++ b/src/services/snapshots.bg.ts
+@@ -8,7 +8,6 @@ import * as Windows from 'src/services/windows.bg'
+ import * as Tabs from 'src/services/tabs.bg'
+ import * as Store from 'src/services/storage.bg'
+ import * as IPC from 'src/services/ipc'
+-import * as Containers from 'src/services/containers.bg'
+ import { ItemInfo } from 'src/types/tabs'
+ import * as SidebarConf from 'src/services/sidebar-config'
+ 
+@@ -290,42 +289,10 @@ async function getLastSnapTimeElapsed(): Promise<number> {
+ async function adaptContainers(snapshot: NormalizedSnapshot): Promise<void> {
+-  const currentContainers = Object.values(Containers.reactive.byId)
+-  const oldNewIds: Record<string, string> = {}
+-
+-  for (const container of Object.values(snapshot.containers)) {
+-    let sColor = container.color
+-    if (sColor === 'turquoise') sColor = 'cyan'
+-    if (sColor === 'toolbar') sColor = 'gray'
+-
+-    const currentContainer = currentContainers.find(c => {
+-      let lColor = c.color
+-      if (lColor === 'turquoise') lColor = 'cyan'
+-      if (lColor === 'toolbar') lColor = 'gray'
+-      return c.name === container.name && c.icon === container.icon && lColor === sColor
+-    })
+-
+-    // Create new container
+-    if (!currentContainer) {
+-      const newContainer = await Containers.create(Utils.clone(container))
+-      oldNewIds[container.id] = newContainer.id
+-    }
+-
+-    // Do nothing with extisted
+-    else {
+-      oldNewIds[container.id] = currentContainer.id
+-    }
+-  }
+-
+-  // Update snapshot tabs container ids
++  snapshot.containers = {}
+   for (const win of snapshot.tabs) {
+     for (const panel of win) {
+       for (const tab of panel) {
+-        if (tab.containerId && oldNewIds[tab.containerId]) {
+-          tab.containerId = oldNewIds[tab.containerId]
+-        }
++        delete tab.containerId
+       }
+     }
+   }
+-
+-  // Save containers config
+-  await Containers.saveContainers()
+ }
+diff --git a/src/services/snapshots.fg.ts b/src/services/snapshots.fg.ts
+--- a/src/services/snapshots.fg.ts
++++ b/src/services/snapshots.fg.ts
+@@ -9,7 +9,6 @@ import * as IPC from 'src/services/ipc'
+ import * as Favicons from 'src/services/favicons.fg'
+ import * as Utils from 'src/utils'
+ import * as Windows from 'src/services/windows.fg'
+-import * as Containers from 'src/services/containers.fg'
+ 
+ import { getNormalizedSnapshot, GLOB_PINNED_ID } from 'src/services/snapshots'
+ export * from 'src/services/snapshots'
+@@ -43,23 +42,8 @@ export function notifyAboutNewSnapshot(): void {
+ export async function adaptContainer(
+   snapshot: T.SnapshotState,
+   containerId: string
+ ): Promise<string> {
+-  if (containerId === D.DEFAULT_CONTAINER_ID || containerId === D.PRIVATE_CONTAINER_ID) {
+-    return containerId
+-  }
+-
+-  const snapContainer: T.Container | undefined = snapshot.containers[containerId]
+-  const matchedLocalContainer = Containers.findUnique({
+-    name: snapContainer.name,
+-    color: snapContainer.color,
+-    icon: snapContainer.icon,
+-  })
+-  if (matchedLocalContainer) {
+-    return matchedLocalContainer.id
+-  }
+-
+-  // Create new container
+-  const newContainer = await Containers.create(Utils.clone(snapContainer))
+-
+-  return newContainer.id
++  void snapshot
++  void containerId
++  return D.DEFAULT_CONTAINER_ID
+ }
