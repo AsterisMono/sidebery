@@ -24,6 +24,15 @@ export function isNewTabUrl(url?: string): boolean {
   )
 }
 
+export function isExtensionUrl(url?: string): boolean {
+  if (!url) return false
+  try {
+    return EXTENSION_PROTOCOLS.has(new URL(url).protocol)
+  } catch {
+    return false
+  }
+}
+
 export function isExtensionPageUrl(url: string, pagePath: string): boolean {
   try {
     const parsed = new URL(url)

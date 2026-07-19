@@ -54,7 +54,8 @@ diff --git a/src/services/tabs.fg.handlers.ts b/src/services/tabs.fg.handlers.ts
 -    tab.url !== NEWTAB_URL && // Ignore new tabs
 +    !PlatformUrls.isNewTabUrl(tab.url) && // Ignore new tabs
      tab.url !== 'about:blank' && // Ignore new tabs
-     (tab.isParent || !tab.url.startsWith('m')) // and non-parent addon pages
+-    (tab.isParent || !tab.url.startsWith('m')) // and non-parent addon pages
++    (tab.isParent || !PlatformUrls.isExtensionUrl(tab.url)) // and non-parent addon pages
    ) {
 diff --git a/src/services/tabs.fg.create.ts b/src/services/tabs.fg.create.ts
 --- a/src/services/tabs.fg.create.ts
@@ -179,3 +180,23 @@ diff --git a/src/services/drag-and-drop.fg.ts b/src/services/drag-and-drop.fg.ts
 -    const newTabConf: T.ItemInfo = { id: D.NOID, url: item.url ?? 'about:newtab', active: true }
 +    const newTabConf: T.ItemInfo = { id: D.NOID, url: item.url ?? PlatformUrls.getNewTabUrl(), active: true }
      await Tabs.open([newTabConf], dst)
+diff --git a/src/services/tabs.fg.move.ts b/src/services/tabs.fg.move.ts
+--- a/src/services/tabs.fg.move.ts
++++ b/src/services/tabs.fg.move.ts
+@@ -12,6 +12,7 @@ import * as IPPC from 'src/services/ippc.addon'
+ import * as Popups from 'src/services/popups.fg'
+ import * as Logs from 'src/services/logs'
+ import * as Utils from 'src/utils'
+ import * as Links from 'src/services/links'
++import * as PlatformUrls from 'src/platform/urls'
+ 
+ export let movingTabs: ID[] = []
+@@ -825,7 +826,7 @@ export function moveTabToPanelByRule(tabId: ID, delay = 0): void {
+       excludeTo !== NOID &&
+       excludeTo !== tab.panelId &&
+       !tab.url.startsWith('a') &&
+-      !tab.url.startsWith('m')
++      !PlatformUrls.isExtensionUrl(tab.url)
+     ) {
+       moveTabToPanel(tab, excludeTo)
+     }
