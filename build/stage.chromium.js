@@ -1,6 +1,7 @@
 /* eslint no-console: off */
 import fs from 'node:fs'
 import path from 'node:path'
+import crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
 
 const ROOT = process.cwd()
@@ -9,6 +10,7 @@ const OVERLAY_DIR = path.join(ROOT, 'src.chromium')
 const PATCHES_DIR = path.join(ROOT, 'patches')
 const STAGING_DIR = path.join(ROOT, '.staging-chromium')
 const STAGED_SRC_DIR = path.join(STAGING_DIR, 'src')
+const PATCH_STATE_FILE = path.join(STAGING_DIR, '.patches-state')
 const IS_DEV = process.argv.includes('--dev')
 const DROPPED_CHROMIUM_COMMANDS = new Set(['_execute_sidebar_action', 'open_sync_popup'])
 const ADDED_CHROMIUM_COMMANDS = new Set(['_execute_action'])
@@ -85,11 +87,33 @@ async function removeEmptyDirectories(root) {
   }
 }
 
-async function applyPatches() {
-  const patches = (await fs.promises.readdir(PATCHES_DIR))
+async function getPatches() {
+  return (await fs.promises.readdir(PATCHES_DIR))
     .filter(file => file.endsWith('.patch'))
     .sort()
+}
 
+async function getPatchFingerprint(patches) {
+  const hash = crypto.createHash('sha256')
+  for (const patch of patches) {
+    hash.update(patch)
+    hash.update('\0')
+    hash.update(await fs.promises.readFile(path.join(PATCHES_DIR, patch)))
+    hash.update('\0')
+  }
+  return hash.digest('hex')
+}
+
+async function readPatchFingerprint() {
+  try {
+    return (await fs.promises.readFile(PATCH_STATE_FILE, 'utf8')).trim()
+  } catch (err) {
+    if (err.code === 'ENOENT') return null
+    throw err
+  }
+}
+
+async function applyPatches(patches) {
   for (const patch of patches) {
     const patchPath = path.join(PATCHES_DIR, patch)
     if (await gitApply(['--reverse', '--check', '--directory=.staging-chromium', patchPath], true)) {
@@ -154,6 +178,13 @@ async function stage() {
 
   staging = true
   try {
+    const patches = await getPatches()
+    const patchFingerprint = await getPatchFingerprint(patches)
+    const previousPatchFingerprint = await readPatchFingerprint()
+    if (patchFingerprint !== previousPatchFingerprint) {
+      await fs.promises.rm(STAGED_SRC_DIR, { recursive: true, force: true })
+    }
+
     await fs.promises.mkdir(STAGED_SRC_DIR, { recursive: true })
     await copyTree(SRC_DIR, STAGED_SRC_DIR)
     await copyTree(OVERLAY_DIR, STAGED_SRC_DIR, {
@@ -161,8 +192,9 @@ async function stage() {
       force: true,
     })
     await removeStaleFiles()
-    await applyPatches()
+    await applyPatches(patches)
     await checkManifestDrift()
+    await fs.promises.writeFile(PATCH_STATE_FILE, `${patchFingerprint}\n`)
     console.log('Chromium staging complete')
   } finally {
     staging = false
