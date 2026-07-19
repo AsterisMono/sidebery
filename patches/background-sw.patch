@@ -15,6 +15,14 @@ diff --git a/src/services/settings.ts b/src/services/settings.ts
 diff --git a/src/services/favicons.ts b/src/services/favicons.ts
 --- a/src/services/favicons.ts
 +++ b/src/services/favicons.ts
+@@ -2,6 +2,7 @@ import { DataUriImage, Stored } from 'src/types'
+ import * as D from 'src/defaults'
+ import * as Utils from 'src/utils'
+ import * as Logs from 'src/services/logs'
++import * as PlatformUrls from 'src/platform/urls'
+ 
+ export const MAX_COUNT_LIMIT = 2000
+ export const SHARD_SIZE = 400
 @@ -45,8 +45,9 @@ export async function loadFaviconsData() {
    }
  }
@@ -27,6 +35,20 @@ diff --git a/src/services/favicons.ts b/src/services/favicons.ts
  
  let favRescaleCanvas: HTMLCanvasElement | undefined
  let favPrescaleCanvas: HTMLCanvasElement | undefined
+@@ -120,10 +121,8 @@ export function getFavPlaceholder(url?: string): string {
+   if (!url) return '#icon_ff'
+ 
+-  if (url.startsWith('m')) {
+-    if (url.startsWith(D.GROUP_PATH, 52)) return '#icon_group'
+-    if (url.startsWith(D.PLACEHOLDER_PATH, 52)) return '#icon_link_favicon'
+-    if (url.startsWith(D.SETUP_PATH, 52)) return '#icon_settings'
+-  }
++  if (PlatformUrls.isExtensionPageUrl(url, D.GROUP_PATH)) return '#icon_group'
++  if (PlatformUrls.isExtensionPageUrl(url, D.PLACEHOLDER_PATH)) return '#icon_link_favicon'
++  if (PlatformUrls.isExtensionPageUrl(url, D.SETUP_PATH)) return '#icon_settings'
+ 
+   if (D.IMG_RE.test(url)) return '#icon_img'
+   if (D.VID_RE.test(url)) return '#icon_vid'
 diff --git a/src/services/favicons.bg.ts b/src/services/favicons.bg.ts
 --- a/src/services/favicons.bg.ts
 +++ b/src/services/favicons.bg.ts
