@@ -17,6 +17,7 @@ const inertEvent = {
 
 const nativeTabsOnUpdated = chrome.tabs.onUpdated
 const nativeTabsOnActivated = chrome.tabs.onActivated
+const nativeTabsOnRemoved = chrome.tabs.onRemoved
 const tabsOnUpdatedWrappers = new Map<
   browser.tabs.UpdatedListener,
   browser.tabs.UpdatedListener
@@ -90,6 +91,11 @@ nativeTabsOnActivated.addListener(info => {
   const enriched = { ...info, previousTabId }
   for (const listener of [...tabsOnActivatedListeners]) listener(enriched)
 })
+nativeTabsOnRemoved.addListener((tabId, info) => {
+  if (activeTabByWindow.get(info.windowId) === tabId) {
+    activeTabByWindow.delete(info.windowId)
+  }
+})
 
 const tabsOnActivated = {
   addListener(listener: browser.tabs.ActivatedListener): void {
@@ -159,7 +165,11 @@ const tabs = {
   },
 
   async update(tabId: ID, details: browser.tabs.UpdateProperties): Promise<browser.tabs.Tab> {
-    const { successorTabId: _successorTabId, ...chromiumDetails } = details
+    const {
+      loadReplace: _loadReplace,
+      successorTabId: _successorTabId,
+      ...chromiumDetails
+    } = details
     if (chromiumDetails.openerTabId === tabId) delete chromiumDetails.openerTabId
     return chrome.tabs.update(tabId, chromiumDetails)
   },

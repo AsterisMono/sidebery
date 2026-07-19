@@ -1,12 +1,14 @@
-# Missing session metadata is normal on first Chromium launch; use the fallback panel quietly.
+# Missing session metadata is normal when Chromium has no matching local restart cache.
+# Keep a low-noise diagnostic, then use the fallback panel without an undefined-panel warning.
 diff --git a/src/services/tabs.fg.ts b/src/services/tabs.fg.ts
 --- a/src/services/tabs.fg.ts
 +++ b/src/services/tabs.fg.ts
-@@ -516,5 +516,3 @@ function restoreTab(
+@@ -516,5 +516,5 @@ function restoreTab(
      if (props.customTitle) tab.customTitle = props.customTitle
      if (props.customColor) tab.reactive.customColor = tab.customColor = props.customColor
--  } else {
+   } else {
 -    Logs.warn(`Tabs.restoreTab: no props for: "${tab.id} i${tab.index} url${tab.url}"`)
++    Logs.info(`Tabs.restoreTab: no props for: "${tab.id} i${tab.index} url${tab.url}"`)
    }
 @@ -537,5 +535,7 @@ function restoreTab(
      }

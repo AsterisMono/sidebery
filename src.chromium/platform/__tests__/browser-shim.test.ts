@@ -192,7 +192,7 @@ describe('tabs creation and activation semantics', () => {
     })
     expect(tabsCreate).toHaveBeenCalledWith({ url: 'https://example.com' })
 
-    await browser.tabs.update(99, { active: true, successorTabId: 10 })
+    await browser.tabs.update(99, { active: true, loadReplace: true, successorTabId: 10 })
     expect(tabsUpdate).toHaveBeenCalledWith(99, { active: true })
 
     await browser.tabs.update(99, { openerTabId: 99 })
@@ -212,6 +212,10 @@ describe('tabs creation and activation semantics', () => {
     tabsOnActivated.emit({ tabId: 12, windowId: 7 })
     expect(listener).toHaveBeenNthCalledWith(1, { tabId: 11, windowId: 7, previousTabId: 10 })
     expect(listener).toHaveBeenNthCalledWith(2, { tabId: 12, windowId: 7, previousTabId: 11 })
+
+    tabsOnRemoved.emit(12, { isWindowClosing: false, windowId: 7 })
+    tabsOnActivated.emit({ tabId: 13, windowId: 7 })
+    expect(listener).toHaveBeenNthCalledWith(3, { tabId: 13, windowId: 7, previousTabId: -1 })
   })
 })
 
