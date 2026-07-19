@@ -1,0 +1,181 @@
+diff --git a/src/utils.ts b/src/utils.ts
+--- a/src/utils.ts
++++ b/src/utils.ts
+@@ -2,6 +2,7 @@ import type * as T from './types'
+ import * as D from './defaults'
+ import * as E from './enums'
+ import { translate } from './dict'
++import * as PlatformUrls from 'src/platform/urls'
+ 
+ // prettier-ignore
+ const ALPH = [
+@@ -521,10 +522,10 @@ export function parseDragEvent(event: DragEvent): Promise<T.DragResult> {
+ }
+ 
+ export function isGroupUrl(url: string): boolean {
+-  return url.startsWith('m') && url.startsWith('/sidebery/group.html', 52)
++  return PlatformUrls.isExtensionPageUrl(url, 'sidebery/group.html')
+ }
+ export function isPlaceholderUrl(url: string): boolean {
+-  return url.startsWith('m') && url.startsWith('/sidebery/url.html', 52)
++  return PlatformUrls.isExtensionPageUrl(url, 'sidebery/url.html')
+ }
+ 
+ export function createGroupUrl(name?: string, pinUrl?: string, pinCtr?: string): string {
+@@ -658,7 +659,7 @@ export function clone<T>(value: T): T {
+  */
+ export function sanitizeUrl(url?: string, title?: string): string | undefined {
+   if (!url) return url
+-  if (url === 'about:newtab') return undefined
++  if (PlatformUrls.isNewTabUrl(url)) return undefined
+   if (url === 'about:blank') return undefined
+   if (url.startsWith('about:reader?url=')) {
+     try {
+diff --git a/src/services/tabs.fg.handlers.ts b/src/services/tabs.fg.handlers.ts
+--- a/src/services/tabs.fg.handlers.ts
++++ b/src/services/tabs.fg.handlers.ts
+@@ -17,11 +17,11 @@ import * as Containers from 'src/services/containers'
+ import * as Mouse from 'src/services/mouse.fg'
+ import * as Popups from 'src/services/popups.fg'
+ import * as Links from 'src/services/links'
+ import * as Info from 'src/services/info.fg'
++import * as PlatformUrls from 'src/platform/urls'
+ 
+-const EXT_HOST = browser.runtime.getURL('').slice(16)
++const EXT_HOST = new URL(browser.runtime.getURL('')).hostname
+ const URL_HOST_PATH_RE = /^([a-z0-9-]{1,63}\.)+\w+(:\d+)?\/[A-Za-z0-9-._~:/?#[\]%@!$&'()*+,;=]*$/
+-const NEWTAB_URL = browser.extension.inIncognitoContext ? 'about:privatebrowsing' : 'about:newtab'
+ 
+ export let listenersAreSet = false
+ export function setupTabsListeners(): void {
+@@ -1179,6 +1180,6 @@ export async function onTabRemoved(
+   if (
+     !detached &&
+-    tab.url !== NEWTAB_URL && // Ignore new tabs
++    !PlatformUrls.isNewTabUrl(tab.url) && // Ignore new tabs
+     tab.url !== 'about:blank' && // Ignore new tabs
+     (tab.isParent || !tab.url.startsWith('m')) // and non-parent addon pages
+   ) {
+diff --git a/src/services/tabs.fg.create.ts b/src/services/tabs.fg.create.ts
+--- a/src/services/tabs.fg.create.ts
++++ b/src/services/tabs.fg.create.ts
+@@ -8,6 +8,7 @@ import * as Windows from 'src/services/windows.fg'
+ import * as IPC from 'src/services/ipc'
+ import * as Popups from 'src/services/popups.fg'
+ import * as Logs from 'src/services/logs'
+ import * as Utils from 'src/utils'
++import * as PlatformUrls from 'src/platform/urls'
+ 
+ /**
+@@ -184,7 +185,6 @@ export async function createFromDragEvent(e: DragEvent, dst: DstPlaceInfo): Promise<void> {
+     }
+ 
+     if (info?.items) {
+-      const groupUrlStartRe = /^moz-extension:\/\/.{36}\/(page.)?group\/group\.html(.+)$/
+       for (const item of info.items) {
+         // Remove containers info b/c it's a different profile, hence containerId
+         // refers to a different container.
+@@ -193,9 +193,7 @@ export async function createFromDragEvent(e: DragEvent, dst: DstPlaceInfo): Promise<void> {
+         delete item.container
+ 
+         // Update sidebery internal urls
+-        if (item.url && groupUrlStartRe.test(item.url)) {
+-          item.url = item.url.replace(groupUrlStartRe, (_, _1, $2: string) => D.GROUP_URL + $2)
+-        }
++        if (item.url) item.url = PlatformUrls.replaceExternalGroupUrl(item.url, D.GROUP_URL)
+       }
+ 
+       Tabs.open(info.items, dst)
+@@ -585,3 +584,3 @@ export async function reopenTabsInNewContainer(
+   const dst: DstPlaceInfo = { panelId: panel.id, containerId: container.id }
+-  await Tabs.open([{ id: -1, url: 'about:newtab' }], dst)
++  await Tabs.open([{ id: -1, url: PlatformUrls.getNewTabUrl() }], dst)
+ }
+diff --git a/src/services/bookmarks.fg.ts b/src/services/bookmarks.fg.ts
+--- a/src/services/bookmarks.fg.ts
++++ b/src/services/bookmarks.fg.ts
+@@ -15,7 +15,8 @@ import * as IPC from 'src/services/ipc'
+ import * as Permissions from 'src/services/permissions.fg'
+ import * as Containers from 'src/services/containers'
+ import * as DnD from 'src/services/drag-and-drop.fg'
+ import * as Search from 'src/services/search.fg'
+ import * as Links from 'src/services/links'
++import * as PlatformUrls from 'src/platform/urls'
+ 
+ import * as Bookmarks from './bookmarks.fg'
+@@ -1130,7 +1131,6 @@ export async function createFromDragEvent(e: DragEvent, dst: T.DstPlaceInfo): Promise<void> {
+     }
+ 
+     if (info?.items) {
+-      const groupUrlStartRe = /^moz-extension:\/\/.{36}\/(page.)?group\/group\.html(.+)$/
+       for (const item of info.items) {
+         // Remove containers info b/c it's a different profile, hence containerId
+         // refers to a different container.
+@@ -1139,9 +1139,7 @@ export async function createFromDragEvent(e: DragEvent, dst: T.DstPlaceInfo): Promise<void> {
+         delete item.container
+ 
+         // Update sidebery internal urls
+-        if (item.url && groupUrlStartRe.test(item.url)) {
+-          item.url = item.url.replace(groupUrlStartRe, (_, _1, $2: string) => D.GROUP_URL + $2)
+-        }
++        if (item.url) item.url = PlatformUrls.replaceExternalGroupUrl(item.url, D.GROUP_URL)
+       }
+ 
+       Bookmarks.createFrom(info.items, dst)
+diff --git a/src/services/setup-page.fg.ts b/src/services/setup-page.fg.ts
+--- a/src/services/setup-page.fg.ts
++++ b/src/services/setup-page.fg.ts
+@@ -6,6 +6,7 @@ import * as Sidebar from 'src/services/sidebar.fg'
+ import * as Tabs from 'src/services/tabs.fg'
+ import * as Settings from 'src/services/settings'
+ import * as Logs from 'src/services/logs'
+ import * as SidebarConf from 'src/services/sidebar-config'
++import * as PlatformUrls from 'src/platform/urls'
+ 
+ export type SetupPageView =
+@@ -172,7 +173,7 @@ export async function open(section?: string): Promise<void> {
+       activeTab &&
+       activeTab.status === 'complete' &&
+       !activeTab.pinned &&
+-      (activeTab.url === 'about:newtab' || activeTab.url === 'about:blank')
++      (PlatformUrls.isNewTabUrl(activeTab.url) || activeTab.url === 'about:blank')
+     ) {
+       await browser.tabs.update(activeTab.id, { url, active: true })
+     } else if (Utils.isTabsPanel(activePanel)) {
+diff --git a/src/page.group/group.ts b/src/page.group/group.ts
+--- a/src/page.group/group.ts
++++ b/src/page.group/group.ts
+@@ -4,7 +4,8 @@ import { NOID, PAGE_HASH_RE, SETTINGS_OPTIONS } from 'src/defaults'
+ import { applyCustomCSS, applyThemeSrcVars } from './group.styles'
+ import * as Logs from './group.logs'
+ import * as IPPC from 'src/services/ippc.page'
+ import { DstTreePos, InstanceType } from 'src/enums'
+ import { getDomainOf } from 'src/utils'
++import * as PlatformUrls from 'src/platform/urls'
+ 
+ let groupTitle = ''
+@@ -304,5 +305,5 @@ function setupNewTabButton() {
+   newTabEl.addEventListener('mouseup', e => e.stopPropagation())
+   newTabEl.addEventListener('click', () => {
+     const pos = groupNewTabPos === 'last_child' ? DstTreePos.End : DstTreePos.Start
+-    const newTabConf = { id: 0, url: 'about:newtab', active: true }
++    const newTabConf = { id: 0, url: PlatformUrls.getNewTabUrl(), active: true }
+     const dst: T.DstPlaceInfo = { windowId: groupWinId, parentId: groupTabId, pos }
+diff --git a/src/services/drag-and-drop.fg.ts b/src/services/drag-and-drop.fg.ts
+--- a/src/services/drag-and-drop.fg.ts
++++ b/src/services/drag-and-drop.fg.ts
+@@ -13,6 +13,7 @@ import * as Logs from 'src/services/logs'
+ import * as IPC from 'src/services/ipc'
+ import * as TabsSync from 'src/services/tabs.fg.sync'
+ import * as Permissions from 'src/services/permissions.fg'
+ import * as Search from 'src/services/search.fg'
++import * as PlatformUrls from 'src/platform/urls'
+ 
+ import * as DnD from 'src/services/drag-and-drop.fg'
+@@ -1142,5 +1143,5 @@ function applyDrop(
+   if (fromNewTabBar && toTabs) {
+     const item = dndItems[0]
+     dst.containerId = item.container ?? D.CONTAINER_ID
+-    const newTabConf: T.ItemInfo = { id: D.NOID, url: item.url ?? 'about:newtab', active: true }
++    const newTabConf: T.ItemInfo = { id: D.NOID, url: item.url ?? PlatformUrls.getNewTabUrl(), active: true }
+     await Tabs.open([newTabConf], dst)
