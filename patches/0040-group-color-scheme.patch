@@ -1,0 +1,60 @@
+# Chromium's MV3 worker cannot evaluate prefers-color-scheme, so its deterministic
+# window-style fallback is light. Let the group document resolve Sidebery's system
+# setting against Chrome's renderer preference, keep it live, and do not warn about
+# the intentionally unavailable Firefox theme palette.
+diff --git a/src/types/tabs.ts b/src/types/tabs.ts
+--- a/src/types/tabs.ts
++++ b/src/types/tabs.ts
+@@ -149,6 +149,7 @@ export interface GroupPageInitData {
+   parsedTheme?: ParsedTheme
+   frameColorScheme?: 'dark' | 'light'
+   toolbarColorScheme?: 'dark' | 'light'
++  useSystemColorScheme?: boolean
+   customCSS?: string
+   groupLayout?: (typeof D.SETTINGS_OPTIONS.groupLayout)[number]
+   animations?: boolean
+diff --git a/src/services/tabs.bg.ts b/src/services/tabs.bg.ts
+--- a/src/services/tabs.bg.ts
++++ b/src/services/tabs.bg.ts
+@@ -721,6 +721,7 @@ export async function getGroupPageInitData(tabId: ID): Promise<T.GroupPageInitData> {
+     parsedTheme: winStyles?.parsedTheme,
+     frameColorScheme: winStyles?.frameColorScheme,
+     toolbarColorScheme: winStyles?.toolbarColorScheme,
++    useSystemColorScheme: Settings.state.colorScheme === 'sys',
+     customCSS: await Styles.loadCustomGroupCSS(),
+     groupLayout: Settings.state.groupLayout,
+     animations: Settings.state.animations,
+diff --git a/src/page.group/group.ts b/src/page.group/group.ts
+--- a/src/page.group/group.ts
++++ b/src/page.group/group.ts
+@@ -6,4 +6,5 @@ import * as Logs from './group.logs'
+ import * as IPPC from 'src/services/ippc.page'
+ import { DstTreePos, InstanceType } from 'src/enums'
+ import { getDomainOf } from 'src/utils'
++import { watchSystemColorScheme } from 'src/platform/color-scheme'
+ import * as PlatformUrls from 'src/platform/urls'
+@@ -62,11 +63,17 @@ async function main() {
+   if (initData.theme) document.body.setAttribute('data-theme', initData.theme)
+   else Logs.warn('Cannot init sidebery theme')
+-  if (initData.frameColorScheme) {
+-    document.body.setAttribute('data-frame-color-scheme', initData.frameColorScheme)
+-  } else Logs.warn('Cannot set frame color scheme')
+-  if (initData.toolbarColorScheme) {
+-    document.body.setAttribute('data-toolbar-color-scheme', initData.toolbarColorScheme)
+-  } else Logs.warn('Cannot set toolbar color scheme')
++  if (initData.useSystemColorScheme) {
++    watchSystemColorScheme(colorScheme => {
++      document.body.setAttribute('data-frame-color-scheme', colorScheme)
++      document.body.setAttribute('data-toolbar-color-scheme', colorScheme)
++    })
++  } else {
++    if (initData.frameColorScheme) {
++      document.body.setAttribute('data-frame-color-scheme', initData.frameColorScheme)
++    } else Logs.warn('Cannot set frame color scheme')
++    if (initData.toolbarColorScheme) {
++      document.body.setAttribute('data-toolbar-color-scheme', initData.toolbarColorScheme)
++    } else Logs.warn('Cannot set toolbar color scheme')
++  }
+   if (initData.parsedTheme) applyThemeSrcVars(initData.parsedTheme)
+-  else Logs.warn('Cannot apply firefox theme colors')
+   if (initData.customCSS) applyCustomCSS(initData.customCSS)
