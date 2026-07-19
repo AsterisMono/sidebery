@@ -1,0 +1,139 @@
+# Chromium exposes extension shortcuts as read-only; editing lives in Chrome settings.
+diff --git a/src/services/keybindings.fg.ts b/src/services/keybindings.fg.ts
+--- a/src/services/keybindings.fg.ts
++++ b/src/services/keybindings.fg.ts
+@@ -90,29 +90,7 @@ export async function importSyncedKeybindings(entry: Sync.SyncedEntry) {
+   })
+ }
+ 
+-export async function importKeybindings(keybindings: Record<string, string>) {
+-  // Logs.info('Keybindings.importKeybindings(): keybindings:', keybindings)
+-
+-  const waiting = []
+-  const commands = await browser.commands.getAll()
+-  for (const k of commands as T.Command[]) {
+-    if (!k.name) continue
+-
+-    const name = k.name
+-    const shortcut = keybindings[k.name]
+-
+-    // Find conflicting shortcuts
+-    const toReset = commands.find(k => k.shortcut === shortcut && k.name !== name)
+-    if (toReset?.name) await browser.commands.update({ name: toReset.name, shortcut: '' })
+-
+-    // Set or remove shortcut
+-    if (shortcut) waiting.push(browser.commands.update({ name, shortcut }))
+-    else waiting.push(browser.commands.update({ name, shortcut: '' }))
+-  }
+-
+-  await Promise.allSettled(waiting)
+-  load()
+-}
++export async function importKeybindings(_keybindings: Record<string, string>): Promise<void> {}
+ 
+ /**
+  * Reset addon's keybindings
+@@ -119,15 +97,6 @@ export async function importKeybindings(keybindings: Record<string, string>) {
+  */
+ export async function resetKeybindings(): Promise<void> {
+-  const waitGroup = reactive.list.map(async k => {
+-    if (k.name) return browser.commands.reset(k.name)
+-  })
+-
+-  await Promise.all(waitGroup)
+-  await load()
+-
+-  if (Settings.state.syncSaveKeybindings) {
+-    saveKeybindingsToSync()
+-  }
++  return
+ }
+ 
+ /**
+@@ -144,17 +115,10 @@ export function checkShortcut(shortcut: string): 'valid' | 'duplicate' | 'invalid' {
+ /**
+  * Update keybinding
+  */
+-export async function update(cmd: T.Command, details: T.CommandUpdateDetails): Promise<void> {
+-  Object.assign(cmd, details)
+-
+-  if (details.shortcut !== undefined && cmd.name) {
+-    if (Settings.state.syncSaveKeybindings) {
+-      saveKeybindingsToSyncDebounced(150)
+-    }
+-
+-    await browser.commands.update({ name: cmd.name, shortcut: details.shortcut })
+-  }
+-}
++export async function update(
++  _cmd: T.Command,
++  _details: T.CommandUpdateDetails
++): Promise<void> {}
+ 
+ /**
+  * Reset errors
+diff --git a/src/page.setup/components/keybindings.keybinding.vue b/src/page.setup/components/keybindings.keybinding.vue
+--- a/src/page.setup/components/keybindings.keybinding.vue
++++ b/src/page.setup/components/keybindings.keybinding.vue
+@@ -2,17 +2,19 @@
+ .keybinding(
+   :is-focused="keybinding.focus"
+   :data-error="!!keybinding.error")
+-  .label(@click="changeKeybinding(keybinding)") {{keybinding.description}}
++  .label {{keybinding.description}}
+   .value(v-if="keybinding.focus") {{inputLabel}}
+   .value(v-else-if="keybinding.error") {{translate('settings.kb_err_' + keybinding.error)}}
+-  .value(v-else @click="changeKeybinding(keybinding)") {{normalizeShortcut(keybinding.shortcut)}}
++  .value(v-else) {{normalizeShortcut(keybinding.shortcut)}}
+   input(
++    v-if="false"
+     type="text"
+     tabindex="-1"
+     ref="inputEl"
+     @blur="onKBBlur(keybinding)"
+     @keydown.prevent.stop="onKBKey($event, keybinding)"
+     @keyup.prevent.stop="onKBKeyUp($event)")
+   .icon-btn(
++    v-if="false"
+     :data-enabled="!!keybinding.shortcut"
+     @click="removeKeybinding(keybinding)"): svg: use(href="#icon_remove")
+diff --git a/src/page.setup/components/keybindings.vue b/src/page.setup/components/keybindings.vue
+--- a/src/page.setup/components/keybindings.vue
++++ b/src/page.setup/components/keybindings.vue
+@@ -210,7 +210,10 @@
+     KeybindingField(:keybinding="Keybindings.reactive.byName.sort_panel_tabs_by_time_des")
+ 
+   section
++    .info {{translate('settings.kb_chromium_note')}}
++    .ctrls
++      .btn(@click="openChromiumShortcuts") {{translate('settings.kb_chromium_open_shortcuts')}}
+-    .ctrls
++    .ctrls(v-if="false")
+       .btn(@click="Keybindings.resetKeybindings") {{translate('settings.reset_kb')}}
+ </template>
+ 
+@@ -228,4 +231,8 @@ import InfoField from 'src/components/info-field.vue'
+ const el = ref<HTMLElement | null>(null)
+ 
+ onMounted(() => SetupPage.registerEl('settings_keybindings', el.value))
++
++function openChromiumShortcuts(): void {
++  void browser.tabs.create({ url: 'chrome://extensions/shortcuts' })
++}
+ </script>
+diff --git a/src/_locales/dict.setup-page.ts b/src/_locales/dict.setup-page.ts
+--- a/src/_locales/dict.setup-page.ts
++++ b/src/_locales/dict.setup-page.ts
+@@ -8327,6 +8327,12 @@ export const setupPageTranslations: Translations = {
+     zh_TW: '取消選擇',
+     ja: '選択をリセット',
+   },
++  'settings.kb_chromium_note': {
++    en: 'Configure shortcuts in chrome://extensions/shortcuts.',
++  },
++  'settings.kb_chromium_open_shortcuts': {
++    en: 'Open Chrome shortcuts',
++  },
+ }
+ 
+ if (!window.translations) window.translations = setupPageTranslations
