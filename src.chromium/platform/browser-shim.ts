@@ -25,11 +25,67 @@ function warnSidebarAction(method: string): void {
   console.warn(`browser.sidebarAction.${method}() is not yet shimmed for Chromium`)
 }
 
+const nativeTabsOnUpdated = chrome.tabs.onUpdated
+const tabsOnUpdatedWrappers = new Map<
+  browser.tabs.UpdatedListener,
+  browser.tabs.UpdatedListener
+>()
+
+const tabsOnUpdated = {
+  addListener(
+    listener: browser.tabs.UpdatedListener,
+    filter?: browser.tabs.ExtraParameters
+  ): void {
+    const previousWrapper = tabsOnUpdatedWrappers.get(listener)
+    if (previousWrapper) {
+      nativeTabsOnUpdated.removeListener(previousWrapper)
+      tabsOnUpdatedWrappers.delete(listener)
+    }
+    nativeTabsOnUpdated.removeListener(listener)
+
+    const hasFilter =
+      filter?.tabId !== undefined ||
+      filter?.windowId !== undefined ||
+      (filter?.properties !== undefined && filter.properties.length > 0)
+    if (!hasFilter) {
+      nativeTabsOnUpdated.addListener(listener)
+      return
+    }
+
+    const wrapper: browser.tabs.UpdatedListener = (tabId, changeInfo, tab) => {
+      if (filter.tabId !== undefined && tabId !== filter.tabId) return
+      if (filter.windowId !== undefined && tab.windowId !== filter.windowId) return
+      if (
+        filter.properties?.length &&
+        !filter.properties.some(property =>
+          Object.prototype.hasOwnProperty.call(changeInfo, property)
+        )
+      ) {
+        return
+      }
+      listener(tabId, changeInfo, tab)
+    }
+
+    tabsOnUpdatedWrappers.set(listener, wrapper)
+    nativeTabsOnUpdated.addListener(wrapper)
+  },
+  removeListener(listener: browser.tabs.UpdatedListener): void {
+    nativeTabsOnUpdated.removeListener(listener)
+    const wrapper = tabsOnUpdatedWrappers.get(listener)
+    if (!wrapper) return
+    nativeTabsOnUpdated.removeListener(wrapper)
+    tabsOnUpdatedWrappers.delete(listener)
+  },
+  hasListener(listener: browser.tabs.UpdatedListener): boolean {
+    if (nativeTabsOnUpdated.hasListener(listener)) return true
+    const wrapper = tabsOnUpdatedWrappers.get(listener)
+    return wrapper !== undefined && nativeTabsOnUpdated.hasListener(wrapper)
+  },
+}
+
 const tabs = {
   ...chrome.tabs,
-
-  // TODO(Plan 5): emulate Firefox's optional listener filter.
-  onUpdated: chrome.tabs.onUpdated,
+  onUpdated: tabsOnUpdated,
 
   // TODO(Plan 5): translate this to chrome.scripting.executeScript().
   executeScript: pendingAdapter('tabs.executeScript'),

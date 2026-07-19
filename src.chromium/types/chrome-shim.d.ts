@@ -13,7 +13,9 @@ interface ChromiumEvent<T extends (...args: any[]) => any> {
   hasListener(listener: T): boolean
 }
 
-type ChromiumTabsApi = typeof browser.tabs
+type ChromiumTabsApi = Omit<typeof browser.tabs, 'onUpdated'> & {
+  onUpdated: ChromiumEvent<browser.tabs.UpdatedListener>
+}
 type ChromiumWindowsApi = typeof browser.windows
 
 interface ChromiumExtensionContext {
