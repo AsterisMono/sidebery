@@ -200,3 +200,39 @@ diff --git a/src/services/tabs.fg.move.ts b/src/services/tabs.fg.move.ts
      ) {
        moveTabToPanel(tab, excludeTo)
      }
+diff --git a/src/sidebar/components/bar.new-tab.vue b/src/sidebar/components/bar.new-tab.vue
+--- a/src/sidebar/components/bar.new-tab.vue
++++ b/src/sidebar/components/bar.new-tab.vue
+@@ -53,5 +53,6 @@ import * as IPC from 'src/services/ipc'
+ import * as Windows from 'src/services/windows.fg'
+ import * as DnD from 'src/services/drag-and-drop.fg'
+ import * as Sidebar from 'src/services/sidebar.fg'
++import * as PlatformUrls from 'src/platform/urls'
+ 
+ const props = defineProps({
+@@ -360,7 +361,7 @@ async function activateBtn(tabId?: ID, btn?: NewTabButton) {
+       else if (info.url === 'about:blank' && tab.title && D.INITIAL_TITLE_RE.test(tab.title)) {
+         info.url = 'https://' + tab.title
+       }
+-      if (info.url === 'about:blank') info.url = 'about:newtab'
++      if (info.url === 'about:blank') info.url = PlatformUrls.getNewTabUrl()
+       toReopen.push(info)
+     }
+   }
+diff --git a/src/services/windows.bg.ts b/src/services/windows.bg.ts
+--- a/src/services/windows.bg.ts
++++ b/src/services/windows.bg.ts
+@@ -9,4 +9,5 @@ import * as Sidebar from 'src/services/sidebar.bg'
+ import * as Utils from 'src/utils'
+ import { translate } from 'src/dict'
++import * as PlatformUrls from 'src/platform/urls'
+ 
+ export const byId = new Map<ID, BgWindow>()
+@@ -153,6 +154,6 @@ export async function createWithTabs(
+     }
+ 
+     // Create cache data
+-    const cachedData: TabCache = { id: tab.id, url: srcInfo.url ?? 'about:newtab' }
++    const cachedData: TabCache = { id: tab.id, url: srcInfo.url ?? PlatformUrls.getNewTabUrl() }
+     if (tab.parentId !== undefined && tab.parentId !== NOID) cachedData.parentId = tab.parentId
+     if (srcInfo.panelId) cachedData.panelId = srcInfo.panelId
