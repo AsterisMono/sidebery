@@ -1,0 +1,12 @@
+# Chromium uses Sidebery's in-DOM context menu exclusively.
+diff --git a/src/page.setup/components/settings.menu.vue b/src/page.setup/components/settings.menu.vue
+--- a/src/page.setup/components/settings.menu.vue
++++ b/src/page.setup/components/settings.menu.vue
+@@ -3,6 +3,7 @@
+   h2 {{translate('settings.ctx_menu_title')}}
+   span.header-shadow
+   ToggleField(
++    v-if="false"
+     label="settings.ctx_menu_native"
+     v-model:value="Settings.state.ctxMenuNative"
+     dbg="ctxMenuNative"
