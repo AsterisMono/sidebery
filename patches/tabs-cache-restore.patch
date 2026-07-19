@@ -1,0 +1,101 @@
+diff --git a/src/services/tabs.fg.ts b/src/services/tabs.fg.ts
+--- a/src/services/tabs.fg.ts
++++ b/src/services/tabs.fg.ts
+@@ -18,5 +18,7 @@
+ import * as Favicons from 'src/services/favicons.fg'
+ import * as Links from 'src/services/links'
+ import * as Preview from 'src/services/tabs.fg.preview'
++import type { ChromiumRestoreTab } from 'src/platform/tab-cache'
++import { findCachedDataForLiveTabs } from 'src/platform/tab-cache'
+ 
+ import * as Tabs from 'src/services/tabs.fg'
+@@ -637,84 +639,12 @@
+ function findCachedData(
+   tabs: DeepReadonly<T.NativeTab[]>,
+   data: T.TabCache[][]
+ ): Record<ID, T.TabCache> | undefined {
+-  let maxEqualityCounter = 1
+-  let result: Record<ID, T.TabCache> | undefined
+-
+   Logs.info('Tabs.findCachedData')
+   Logs.info('Tabs.findCachedData: cached windows count:', data.length)
+-
+-  if (tabs.length <= 1) {
+-    Logs.info('Tabs.findCachedData: Skipping')
+-    return
+-  }
+-
+-  if (Windows.uniqWinId && Windows.uniqWinId !== D.NOID) {
+-    const winTabsCache = data.find(winTabs => winTabs[0]?.uniqWinId === Windows.uniqWinId)
+-    if (winTabsCache) data = [winTabsCache]
+-    Logs.info('Tabs.findCachedData: Window has uniqWinId, matched cache found:', !!winTabsCache)
+-  }
+-
+-  for (const winTabs of data) {
+-    let equalityCounter = 0
+-    let blindspotCounter = 0
+-
+-    Logs.info('Tabs.findCachedData:   cached tabs length:', winTabs.length)
+-
+-    const existedTabs: Record<ID, T.TabCache> = {}
+-
+-    let dataIndex = 0
+-    let tabIndex = 0
+-    perTab: for (let tab, tabData; dataIndex < winTabs.length; dataIndex++, tabIndex++) {
+-      tab = tabs[tabIndex]
+-      if (!tab) break
+-      tabData = winTabs[dataIndex]
+-      if (!tabData) break
+-
+-      // Match
+-      const blindspot = tab.status === 'loading' && tab.url === 'about:blank'
+-      if (blindspot) blindspotCounter++
+-      if ((tabData.url === tab.url && !!tabData.pin === tab.pinned) || blindspot) {
+-        existedTabs[tab.id] = tabData
+-        equalityCounter++
+-      }
+-
+-      // No match
+-      else {
+-        // Try to find corresponding local tab
+-        for (let j = tabIndex + 1; j < tabIndex + 5; j++) {
+-          const tabj = tabs[j]
+-          if (tabj && tabj.url === tabData.url) {
+-            tabIndex = j
+-            existedTabs[tabj.id] = tabData
+-            equalityCounter++
+-            continue perTab
+-          }
+-        }
+-        tabIndex--
+-      }
+-    }
+-
+-    Logs.info('Tabs.findCachedData:     equalityCounter:', equalityCounter)
+-    Logs.info('Tabs.findCachedData:     blindspotCounter:', blindspotCounter)
+-
+-    const mismatchedLen = tabs.length - equalityCounter
+-
+-    if (
+-      (tabs.length <= winTabs.length && mismatchedLen > 0) ||
+-      (tabs.length > winTabs.length && mismatchedLen > tabs.length - winTabs.length)
+-    ) {
+-      Logs.warn('Tabs.findCachedData: mismatched:', mismatchedLen, tabs.length, winTabs.length)
+-      continue
+-    }
+-
+-    if (maxEqualityCounter <= equalityCounter) {
+-      maxEqualityCounter = equalityCounter
+-      result = existedTabs
+-    }
+-
+-    if (equalityCounter === tabs.length) break
+-  }
+-
+-  return result
++  return findCachedDataForLiveTabs(
++    tabs as readonly ChromiumRestoreTab[],
++    data,
++    Windows.uniqWinId
++  )
+ }
