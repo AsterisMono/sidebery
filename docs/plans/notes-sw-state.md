@@ -37,6 +37,13 @@ rebuilt or lost whenever Chromium terminates and later restarts the MV3 backgrou
 - `Windows.load()` is now repeatable within one worker. Upstream `Tabs.load()` is safe on a
   fresh worker and `Tabs.reinitTabs()` clears its state first, but calling `Tabs.load()` twice
   directly would append duplicate entries to existing window tab arrays.
+- A tab created while the startup `browser.tabs.query()` is in flight can appear in both the
+  query result and the deferred `tabs.onCreated` queue. Replaying `onTabCreated` then inserts
+  the same tab a second time because that handler does not check `Tabs.byId` before splicing it
+  into the window list.
+- `Omnibox.load()` schedules its first command rebuild through a 500 ms debounce. The startup
+  barrier opens immediately after `load()` returns, so an omnibox input/enter event in that
+  window sees an empty command list and silently does nothing.
 - `tabsDataCache` is the browser-restart fallback. Its write coverage and startup clobber risk
   belong to Plan 13; worker startup must not overwrite a newer cache before restore matching.
 - Correctness cannot depend on a sidebar port keeping the worker alive. All future event
