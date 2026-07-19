@@ -1,6 +1,7 @@
 // Chromium fork of build/vite.ts; keep its build structure in sync with upstream.
 import path from 'node:path'
 import { build, defineConfig, mergeConfig } from 'vite'
+import type { Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import type { RolldownWatcher } from 'rolldown'
 import { IS_DEV, log, logOk } from './utils.js'
@@ -8,6 +9,45 @@ import { IS_DEV, log, logOk } from './utils.js'
 const SRC_PATH = path.resolve('.staging-chromium/src')
 const ADDON_PATH = path.resolve('addon-chromium')
 const source = (relativePath: string) => path.join(SRC_PATH, relativePath)
+const BROWSER_SHIM_ID = source('platform/browser-shim.ts')
+
+const SHIMMED_ENTRY_PATHS = new Set(
+  [
+    'bg/background.ts',
+    'sidebar/sidebar.ts',
+    'page.setup/setup.ts',
+    'popup.panel-config/panel-config.ts',
+    'popup.search/search.ts',
+    'popup.editing/editing.ts',
+    'page.group/group.ts',
+    'page.url/url.ts',
+  ].map(relativePath => path.normalize(source(relativePath)))
+)
+
+function injectBrowserShim(): Plugin {
+  return {
+    name: 'sidebery-chromium-browser-shim',
+    enforce: 'pre',
+    resolveId(id) {
+      if (id === 'src/platform/browser-shim') {
+        // The root package marks modules as side-effect-free, but this module's
+        // sole purpose is installing the global browser object.
+        return { id: BROWSER_SHIM_ID, moduleSideEffects: true }
+      }
+    },
+    transform(code, id) {
+      const sourceId = path.normalize(id.split('?')[0] ?? id)
+      if (sourceId === path.normalize(BROWSER_SHIM_ID)) {
+        return { code, map: null, moduleSideEffects: true }
+      }
+      if (!SHIMMED_ENTRY_PATHS.has(sourceId)) return
+      return {
+        code: `import 'src/platform/browser-shim'\n${code}`,
+        map: null,
+      }
+    },
+  }
+}
 
 const base = defineConfig({
   appType: 'custom',
@@ -62,7 +102,7 @@ async function main() {
         },
       },
     },
-    plugins: [vue()],
+    plugins: [injectBrowserShim(), vue()],
   })
   buildTasks.push(build(mergeConfig(base, splittedScripts, true)))
 
@@ -90,6 +130,7 @@ async function main() {
         },
       },
     },
+    plugins: [injectBrowserShim()],
   })
   buildTasks.push(build(mergeConfig(base, groupInjection, true)))
 
@@ -104,6 +145,7 @@ async function main() {
         },
       },
     },
+    plugins: [injectBrowserShim()],
   })
   buildTasks.push(build(mergeConfig(base, urlInjection, true)))
 

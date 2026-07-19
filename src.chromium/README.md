@@ -6,3 +6,9 @@ shadows the file with the same relative path under `src/`; paths that do not exi
 
 Keep upstream sources untouched: add Chromium changes here instead. A shadowing module
 must preserve the export shape of the upstream module so existing imports keep working.
+
+The upstream runtime entries are monolithic, so they cannot be shadowed and then imported
+under another name. Instead, `build/vite.chromium.ts` prepends the Chromium browser shim to
+every extension-page entry (including the service worker and the group/URL pages) during
+transformation. Locale-only entries and scripts injected into web pages do not load the
+shim.
