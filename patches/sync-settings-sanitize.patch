@@ -1,0 +1,93 @@
+# Keep legacy and imported Chromium settings from re-enabling removed sync paths.
+diff --git a/src/services/settings.ts b/src/services/settings.ts
+--- a/src/services/settings.ts
++++ b/src/services/settings.ts
+@@ -3,3 +3,4 @@
+ import * as Utils from 'src/utils'
++import { sanitizeSettingsForChromium } from 'src/platform/config-sanitize'
+ import * as Info from 'src/services/info'
+ import * as Logs from 'src/services/logs'
+@@ -46,6 +47,7 @@ export async function load(): Promise<void> {
+   const groupOnOpen = storedManaged.settings.groupOnOpen
+   Utils.normalizeObject(storedManaged.settings, DEFAULT_SETTINGS)
+   Utils.updateObject(state, storedManaged.settings, state)
++  sanitizeSettingsForChromium(state)
+ 
+   if (state.hideInact) {
+     state.activateLastTabOnPanelSwitching = true
+diff --git a/src/services/settings.fg.ts b/src/services/settings.fg.ts
+--- a/src/services/settings.fg.ts
++++ b/src/services/settings.fg.ts
+@@ -15,6 +15,7 @@ import * as Sync from 'src/services/sync.fg'
+ import * as Logs from 'src/services/logs'
+ import * as Notifications from 'src/services/notifications.fg'
+ import { translate } from 'src/dict'
++import { sanitizeSettingsForChromium } from 'src/platform/config-sanitize'
+ 
+ import * as Settings from 'src/services/settings'
+ export * from 'src/services/settings'
+@@ -76,6 +77,7 @@ export async function importSyncedSettings(entry: Sync.SyncedEntry) {
+ }
+ 
+ export async function importSettings(settings: SettingsState) {
++  sanitizeSettingsForChromium(settings)
+   Logs.info('Settings.importSettings: settings:', settings)
+ 
+   await Store.set({ settings: settings })
+@@ -85,5 +87,6 @@ export async function importSettings(settings: SettingsState) {
+ export function updateSettings(settings?: SettingsState | null): void {
+   if (!settings) return
++  sanitizeSettingsForChromium(settings)
+ 
+   Logs.info('Settings.updateSettingsFg()')
+ 
+diff --git a/src/services/settings.bg.ts b/src/services/settings.bg.ts
+--- a/src/services/settings.bg.ts
++++ b/src/services/settings.bg.ts
+@@ -10,5 +10,6 @@ import * as SnapshotsBg from 'src/services/snapshots.bg'
+ import * as IPC from 'src/services/ipc'
+ import * as Logs from 'src/services/logs'
++import { sanitizeSettingsForChromium } from 'src/platform/config-sanitize'
+ 
+ import * as Settings from 'src/services/settings'
+ export * from 'src/services/settings'
+@@ -44,6 +45,7 @@ export function setupSettingsChangeListener(): void {
+ }
+ 
+ export async function importSettings(settings: SettingsState) {
++  sanitizeSettingsForChromium(settings)
+   Logs.info('Settings.importSettings: settings:', settings)
+ 
+   await Store.set({ settings: settings })
+@@ -53,5 +55,6 @@ export async function importSettings(settings: SettingsState) {
+ export function updateSettingsBg(settings?: SettingsState | null): void {
+   if (!settings) return
++  sanitizeSettingsForChromium(settings)
+ 
+   Logs.info('Settings.updateSettingsBg()')
+ 
+diff --git a/src/page.setup/components/popup.import-config.vue b/src/page.setup/components/popup.import-config.vue
+--- a/src/page.setup/components/popup.import-config.vue
++++ b/src/page.setup/components/popup.import-config.vue
+@@ -82,7 +82,7 @@ import * as Snapshots from 'src/services/snapshots.fg'
+ import * as SetupPage from 'src/services/setup-page.fg'
+-import * as Sync from 'src/services/sync.fg'
+ import * as SidebarConfig from 'src/services/sidebar-config.fg'
+ import * as IPC from 'src/services/ipc'
+ import * as Keybindings from 'src/services/keybindings.fg'
++import { sanitizeSettingsForChromium } from 'src/platform/config-sanitize'
+ import ToggleField from 'src/components/toggle-field.vue'
+ import LoadingDots from 'src/components/loading-dots.vue'
+@@ -432,11 +432,8 @@ async function importContainers(backup: BackupData): Promise<IdMap> {
+ async function importSettings(backup: BackupData) {
+   if (!backup.settings) return
+ 
++  sanitizeSettingsForChromium(backup.settings)
+   await Settings.importSettings(backup.settings)
+-
+-  if (backup.settings.syncSaveSettings) {
+-    await Sync.save(Sync.SyncedEntryType.Settings, backup.settings)
+-  }
+ }
+ 
+ async function importSidebar(backup: BackupData, containersIds: IdMap = {}) {
