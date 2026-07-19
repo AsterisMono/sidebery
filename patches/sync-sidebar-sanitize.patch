@@ -28,14 +28,11 @@ diff --git a/src/services/sidebar-config.ts b/src/services/sidebar-config.ts
 diff --git a/src/page.setup/components/popup.import-config.vue b/src/page.setup/components/popup.import-config.vue
 --- a/src/page.setup/components/popup.import-config.vue
 +++ b/src/page.setup/components/popup.import-config.vue
-@@ -85,5 +85,7 @@ import * as SidebarConfig from 'src/services/sidebar-config.fg'
+@@ -85,2 +85,4 @@ import * as SidebarConfig from 'src/services/sidebar-config.fg'
  import * as IPC from 'src/services/ipc'
- import * as Keybindings from 'src/services/keybindings.fg'
 +import * as Notifications from 'src/services/notifications.fg'
 +import { sanitizeSidebarConfigForChromium } from 'src/platform/config-sanitize'
- import ToggleField from 'src/components/toggle-field.vue'
- import LoadingDots from 'src/components/loading-dots.vue'
- 
+ import * as Keybindings from 'src/services/keybindings.fg'
 @@ -441,6 +443,16 @@ async function importSettings(backup: BackupData) {
  async function importSidebar(backup: BackupData, containersIds: IdMap = {}) {
    if (!backup.sidebar) return
