@@ -15,12 +15,6 @@ const inertEvent = {
   },
 }
 
-function pendingAdapter(api: string): (...args: any[]) => Promise<never> {
-  return async () => {
-    throw new Error(`browser.${api} is not yet shimmed for Chromium`)
-  }
-}
-
 function warnSidebarAction(method: string): void {
   console.warn(`browser.sidebarAction.${method}() is not yet shimmed for Chromium`)
 }
@@ -308,8 +302,21 @@ const sidebarAction = {
 }
 
 const search = {
-  // TODO(Plan 5): map Firefox's {query, ...} to chrome.search.query({text, ...}).
-  search: pendingAdapter('search.search'),
+  async search(details: browser.search.SearchProps): Promise<void> {
+    if (details.tabId !== undefined && details.disposition !== undefined) {
+      throw new Error(
+        'browser.search.search cannot combine tabId and disposition on Chromium'
+      )
+    }
+    if (details.tabId !== undefined && typeof details.tabId !== 'number') {
+      throw new Error(`browser.search.search requires a numeric tab id, got ${details.tabId}`)
+    }
+
+    const query: ChromiumSearchQuery = { text: details.query }
+    if (details.tabId !== undefined) query.tabId = details.tabId
+    if (details.disposition !== undefined) query.disposition = details.disposition
+    await chrome.search.query(query)
+  },
 }
 
 const browserShim = {
