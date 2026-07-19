@@ -6,6 +6,7 @@ coverage
 addon
 .staging-chromium/
 addon-chromium/
+chromium-dist.pem
 build/*
 !build/*.ts
 !build/*.js
