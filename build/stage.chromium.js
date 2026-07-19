@@ -10,6 +10,8 @@ const PATCHES_DIR = path.join(ROOT, 'patches')
 const STAGING_DIR = path.join(ROOT, '.staging-chromium')
 const STAGED_SRC_DIR = path.join(STAGING_DIR, 'src')
 const IS_DEV = process.argv.includes('--dev')
+const DROPPED_CHROMIUM_COMMANDS = new Set(['_execute_sidebar_action', 'open_sync_popup'])
+const ADDED_CHROMIUM_COMMANDS = new Set(['_execute_action'])
 
 async function listFiles(root) {
   const files = []
@@ -109,8 +111,35 @@ function gitApply(args, checkOnly = false) {
   })
 }
 
-// Plan 2 implements manifest version and command-set drift validation here.
-async function checkManifestDrift() {}
+async function checkManifestDrift() {
+  const [firefoxSource, chromiumSource] = await Promise.all([
+    fs.promises.readFile(path.join(SRC_DIR, 'manifest.json'), 'utf8'),
+    fs.promises.readFile(path.join(OVERLAY_DIR, 'manifest.json'), 'utf8'),
+  ])
+  const firefoxManifest = JSON.parse(firefoxSource)
+  const chromiumManifest = JSON.parse(chromiumSource)
+
+  if (firefoxManifest.version !== chromiumManifest.version) {
+    throw new Error(
+      `Chromium manifest drift: version ${chromiumManifest.version} does not match ` +
+        `Firefox version ${firefoxManifest.version}`
+    )
+  }
+
+  const expected = new Set(Object.keys(firefoxManifest.commands ?? {}))
+  for (const command of DROPPED_CHROMIUM_COMMANDS) expected.delete(command)
+  for (const command of ADDED_CHROMIUM_COMMANDS) expected.add(command)
+
+  const actual = new Set(Object.keys(chromiumManifest.commands ?? {}))
+  const missing = [...expected].filter(command => !actual.has(command)).sort()
+  const unexpected = [...actual].filter(command => !expected.has(command)).sort()
+  if (missing.length || unexpected.length) {
+    const details = []
+    if (missing.length) details.push(`missing: ${missing.join(', ')}`)
+    if (unexpected.length) details.push(`unexpected: ${unexpected.join(', ')}`)
+    throw new Error(`Chromium manifest command drift (${details.join('; ')})`)
+  }
+}
 
 let staging = false
 let stageAgain = false
