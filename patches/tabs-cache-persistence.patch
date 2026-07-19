@@ -1,0 +1,102 @@
+diff --git a/src/services/tabs.bg.ts b/src/services/tabs.bg.ts
+--- a/src/services/tabs.bg.ts
++++ b/src/services/tabs.bg.ts
+@@ -16,5 +16,10 @@
+ import { DetachedTabsInfo } from 'src/services/tabs.fg.move'
+ import { translate } from 'src/dict'
++import {
++  findTabsDataCacheIndex,
++  mergeTabsDataCache,
++  removeTabsDataCache as removeStoredTabsDataCache,
++} from 'src/platform/tab-cache'
+ 
+ import * as Tabs from 'src/services/tabs.bg'
+ 
+@@ -25,5 +30,6 @@
+ 
+ let _tabsDataCache: T.TabCache[][] | undefined
++let tabsDataCacheWrite = Promise.resolve()
+ 
+ /**
+  * Load tabs
+@@ -37,5 +43,5 @@
+       : browser.storage.local.get<T.Stored>('tabsDataCache').catch(() => ({}) as T.Stored),
+   ])
+-  if (!_tabsDataCache) _tabsDataCache = storage?.tabsDataCache
++  if (!_tabsDataCache) _tabsDataCache = storage?.tabsDataCache ?? []
+ 
+   for (const nativeTab of nativeTabs) {
+@@ -69,6 +75,16 @@
+     }
+   }
+ 
++  // A service-worker restart keeps native tab ids. Associate every live window
++  // with its stored entry before sidebars reconnect so closing or updating one
++  // window cannot accidentally drop the other stored windows.
++  for (const window of Windows.byId.values()) {
++    if (!window.tabs?.length) continue
++    const live = window.tabs.map(tab => ({ id: tab.id, url: tab.url, pin: tab.pinned || undefined }))
++    const index = findTabsDataCacheIndex(_tabsDataCache, live)
++    if (index !== -1 && _tabsDataCache[index]) Tabs.cacheByWin[window.id] = _tabsDataCache[index]
++  }
++
+   ready = true
+ 
+   // Call deferred event handlers
+@@ -525,22 +540,32 @@
+   }
+ }
+ 
+-let cacheTabsDataTimeout: number | undefined
+-export function cacheTabsData(windowId: ID, tabs: T.TabCache[], delay = 300): void {
++export function cacheTabsData(
++  windowId: ID,
++  tabs: T.TabCache[],
++  _delay?: number
++): Promise<void> {
+-  if (!tabs) return
+-  // Logs.info('Tabs.cacheTabsData:', windowId)
+ 
+   Tabs.cacheByWin[windowId] = tabs
++  _tabsDataCache = mergeTabsDataCache(_tabsDataCache, tabs)
++  return persistTabsDataCache()
++}
+ 
+-  clearTimeout(cacheTabsDataTimeout)
+-  cacheTabsDataTimeout = setTimeout(() => {
+-    const tabsData = []
+-    for (const tabs of Object.values(Tabs.cacheByWin)) {
+-      if (tabs.length) tabsData.push(tabs)
+-    }
++/** Remove one confidently matched window cache without rebuilding from cacheByWin. */
++export function removeTabsDataCache(windowId: ID): Promise<void> {
++  const removed = Tabs.cacheByWin[windowId]
++  delete Tabs.cacheByWin[windowId]
++  _tabsDataCache = removeStoredTabsDataCache(_tabsDataCache, removed)
++  return persistTabsDataCache()
++}
+ 
+-    Store.set({ tabsDataCache: tabsData })
+-  }, delay)
++function persistTabsDataCache(): Promise<void> {
++  // IPC awaits the returned promise, keeping the MV3 worker alive until the
++  // local write completes. Serialize writes so an older cache cannot win.
++  tabsDataCacheWrite = tabsDataCacheWrite
++    .catch(() => undefined)
++    .then(() => Store.set({ tabsDataCache: _tabsDataCache ?? [] }))
++  return tabsDataCacheWrite
+ }
+ 
+ /**
+diff --git a/src/services/windows.bg.ts b/src/services/windows.bg.ts
+--- a/src/services/windows.bg.ts
++++ b/src/services/windows.bg.ts
+@@ -251,7 +251,7 @@ function onWindowRemoved(windowId: ID): void {
+   if (!window) return
+ 
+   byId.delete(windowId)
+-  delete Tabs.cacheByWin[windowId]
++  void Tabs.removeTabsDataCache(windowId)
+ 
+   if (window.tabs) {
+     for (const tab of window.tabs) {

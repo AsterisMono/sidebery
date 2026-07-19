@@ -49,3 +49,26 @@ rebuilt or lost whenever Chromium terminates and later restarts the MV3 backgrou
 - Correctness cannot depend on a sidebar port keeping the worker alive. All future event
   listeners (especially alarms and context menus) must remain top-level/synchronous and use
   the shared startup readiness barrier before consuming hydrated state.
+
+## `tabsDataCache` write coverage (Plan 13)
+
+The tree cache is produced by the foreground tab model, not by the background's native-tab
+event handlers. The foreground writes after startup restore; create/remove/update handlers;
+pinning and unpinning; native moves and cross-window attach/detach; Sidebery tree moves;
+fold/expand/flatten; panel reassignment; custom title/color changes; and sidebar panel
+reconfiguration. New-tab creation is covered when its native `tabs.onCreated` event is folded
+into the foreground model. Session tab values are also saved separately for the current
+browser session.
+
+The demonstrated Chromium gap was in the background aggregator: after a worker restart,
+`cacheByWin` was empty, so the first reconnecting sidebar replaced local `tabsDataCache` with
+only its own window. The Chromium path now keeps the local cache collection canonical, matches
+and replaces one window by unique window id/current tab ids/unique URL signature, updates the
+in-memory collection immediately, and awaits an eager serialized `storage.local` write. A
+closed window removes only a confidently matched entry. Ambiguous unmatched entries are kept;
+an extra stale reopen candidate is safer than deleting another live window's restart data.
+
+The foreground debounce remains the coalescing boundary. Once its IPC message reaches the
+background, there is no second timer, and the returned promise keeps the worker alive through
+the storage write. A full browser shutdown during the foreground debounce can still lose only
+the newest tree mutation; this is the accepted MV3 degradation.
