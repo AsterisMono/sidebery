@@ -1,4 +1,5 @@
-# Chromium has no cookies permission; keep legacy actions and imported menu entries inert.
+# The Chromium build ships without the cookies permission and has no container cookie
+# stores, so keep the clear-cookies action and imported menu entries inert.
 diff --git a/src/services/tabs.fg.ts b/src/services/tabs.fg.ts
 --- a/src/services/tabs.fg.ts
 +++ b/src/services/tabs.fg.ts

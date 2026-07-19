@@ -1,4 +1,6 @@
-# Chromium drag MIME support, standard event fallback, and CSS fallback.
+# Chromium drag/focus/CSS parity: accept the standard text/uri-list drag type,
+# detect focus leaving the sidebar via relatedTarget (Chromium has no Firefox
+# explicitOriginalTarget), and add standard crisp-edges next to -moz-crisp-edges.
 diff --git a/src/utils.ts b/src/utils.ts
 --- a/src/utils.ts
 +++ b/src/utils.ts

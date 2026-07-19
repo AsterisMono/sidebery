@@ -1,3 +1,6 @@
+# Chromium extension pages use chrome-extension:// with 32-char ids, so Firefox's
+# fixed moz-extension slice offsets (16/52) and about:newtab are wrong here. Route
+# every internal-URL check and new-tab URL through the platform/urls adapter.
 diff --git a/src/utils.ts b/src/utils.ts
 --- a/src/utils.ts
 +++ b/src/utils.ts

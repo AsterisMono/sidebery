@@ -1,3 +1,5 @@
+# Move restart-cache tab matching into the shared platform/tab-cache helper so the
+# same logic serves foreground tab restore and window-identity recovery.
 diff --git a/src/services/tabs.fg.ts b/src/services/tabs.fg.ts
 --- a/src/services/tabs.fg.ts
 +++ b/src/services/tabs.fg.ts

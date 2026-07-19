@@ -1,3 +1,6 @@
+# Persist the tabs-data cache on every change rather than via a debounced timer an
+# MV3 worker can drop when it stops. Awaiting the write keeps the worker alive until
+# storage.local commits, and serialized writes stop a stale cache from overwriting.
 diff --git a/src/services/tabs.bg.ts b/src/services/tabs.bg.ts
 --- a/src/services/tabs.bg.ts
 +++ b/src/services/tabs.bg.ts

@@ -1,3 +1,6 @@
+# A full browser restart clears the session-scoped uniqWinId. Recover it from the
+# persistent tabs-data cache when the current window's live tabs have one clear
+# match, so a restored window keeps its identity and panels.
 diff --git a/src/services/windows.fg.ts b/src/services/windows.fg.ts
 --- a/src/services/windows.fg.ts
 +++ b/src/services/windows.fg.ts

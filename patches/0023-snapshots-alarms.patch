@@ -1,3 +1,6 @@
+# MV3 workers stop between events, so a setTimeout schedule cannot survive. Drive
+# periodic snapshots with chrome.alarms (persistAcrossSessions survives browser
+# restarts), whose onAlarm event restarts a stopped worker.
 diff --git a/src/services/snapshots.bg.ts b/src/services/snapshots.bg.ts
 --- a/src/services/snapshots.bg.ts
 +++ b/src/services/snapshots.bg.ts
