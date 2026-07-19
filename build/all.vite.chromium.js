@@ -48,23 +48,49 @@ async function runDev() {
   await run(scripts.stage)
   await run(scripts.icons)
 
-  const children = Object.values(scripts).map(script => start(script, true))
-  const stop = signal => children.forEach(child => child.kill(signal))
-  process.once('SIGINT', () => stop('SIGINT'))
-  process.once('SIGTERM', () => stop('SIGTERM'))
+  const tasks = Object.values(scripts).map(script => ({ script, child: start(script, true) }))
+  await new Promise((resolve, reject) => {
+    let remaining = tasks.length
+    let shutdownSignal
+    let failure
 
-  await Promise.all(
-    children.map(
-      child =>
-        new Promise((resolve, reject) => {
-          child.on('error', reject)
-          child.on('exit', (code, signal) => {
-            if (code === 0 || signal === 'SIGINT' || signal === 'SIGTERM') resolve()
-            else reject(new Error(`Chromium development task exited with code ${code}`))
-          })
-        })
-    )
-  )
+    const stop = signal => {
+      for (const task of tasks) {
+        if (task.child.exitCode === null && task.child.signalCode === null) task.child.kill(signal)
+      }
+    }
+    const finish = () => {
+      if (--remaining !== 0) return
+      process.removeListener('SIGINT', onSigint)
+      process.removeListener('SIGTERM', onSigterm)
+      if (failure) reject(failure)
+      else resolve()
+    }
+    const shutdown = signal => {
+      shutdownSignal ??= signal
+      stop(signal)
+    }
+    const onSigint = () => shutdown('SIGINT')
+    const onSigterm = () => shutdown('SIGTERM')
+    process.once('SIGINT', onSigint)
+    process.once('SIGTERM', onSigterm)
+
+    for (const { script, child } of tasks) {
+      child.once('error', err => {
+        if (!failure) failure = new Error(`${script} failed to start: ${err.message}`)
+        stop('SIGTERM')
+      })
+      child.once('close', (code, signal) => {
+        if (!shutdownSignal && !failure) {
+          failure = new Error(
+            `${script} exited unexpectedly${signal ? ` (${signal})` : ` with exit code ${code}`}`
+          )
+          stop('SIGTERM')
+        }
+        finish()
+      })
+    }
+  })
 }
 
 ;(IS_DEV ? runDev() : runBuild()).catch(err => {
