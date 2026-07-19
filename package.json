@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "node build/all.vite.js --dev",
     "stage.chromium": "node build/stage.chromium.js",
+    "icons.chromium": "node build/icons.chromium.js",
     "dev.styles": "node build/styles.js --dev",
     "dev.html": "node build/html.js --dev",
     "dev.copy": "node build/copy.js --dev",
@@ -34,6 +35,7 @@
   "author": "mbnuqw",
   "license": "MIT",
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@vitejs/plugin-vue": "6.0.8",
     "@vue/compiler-sfc": "3.5.40",
     "@vue/language-plugin-pug": "3.3.7",
