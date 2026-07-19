@@ -1,0 +1,85 @@
+# Remove Chromium sync controls from setup and shortcut surfaces.
+diff --git a/src/page.setup/components/settings.vue b/src/page.setup/components/settings.vue
+--- a/src/page.setup/components/settings.vue
++++ b/src/page.setup/components/settings.vue
+@@ -14,5 +14,4 @@
+   AppearanceSection
+   MouseSection
+   SnapshotsSection
+-  SyncSection
+   HelpSection
+@@ -46,6 +45,5 @@ import AppearanceSection from './settings.appearance.vue'
+ import MouseSection from './settings.mouse.vue'
+ import SnapshotsSection from './settings.snapshots.vue'
+-import SyncSection from './settings.sync.vue'
+ import HelpSection from './settings.help.vue'
+ import PermissionsPopup from 'src/page.setup/components/popup.permissions.vue'
+ import FooterSection from './footer-section.vue'
+diff --git a/src/services/setup-page.fg.ts b/src/services/setup-page.fg.ts
+--- a/src/services/setup-page.fg.ts
++++ b/src/services/setup-page.fg.ts
+@@ -97,6 +97,5 @@ export let reactive: SetupPageReactiveState = {
+     { active: false, name: 'settings_mouse_history', lvl: 2 },
+     { active: false, name: 'settings_snapshots', lvl: 1 },
+-    { active: false, name: 'settings_sync', lvl: 1 },
+     { active: false, name: 'settings_help', lvl: 1 },
+     { active: false, name: 'keybindings', lvl: 0 },
+     { active: false, name: 'menu_editor', lvl: 0 },
+diff --git a/src/page.setup/components/settings.navbar.vue b/src/page.setup/components/settings.navbar.vue
+--- a/src/page.setup/components/settings.navbar.vue
++++ b/src/page.setup/components/settings.navbar.vue
+@@ -79,12 +79,6 @@
+       dbg="subPanelHistory"
+       :default="DEFAULT_SETTINGS.subPanelHistory"
+       @update:value="Settings.saveDebounced(150)")
+-    ToggleField(
+-      label="settings.sub_panel.sync"
+-      v-model:value="Settings.state.subPanelSync"
+-      dbg="subPanelSync"
+-      :default="DEFAULT_SETTINGS.subPanelSync"
+-      @update:value="Settings.saveDebounced(150)")
+ 
+   InfoField(
+     label="settings.nav_bar_enabled"
+@@ -240,7 +234,7 @@ const availableBtns = computed<Btn[]>(() => {
+   const result: Btn[] = []
+   // prettier-ignore
+   const ids = [
+-    'tabs_panel', 'bookmarks_panel', 'history', 'sync', 'sp', 'sd', 'hdn', 'search',
++    'tabs_panel', 'bookmarks_panel', 'history', 'sp', 'sd', 'hdn', 'search',
+     'add_tp', 'create_snapshot', 'collapse', 'remute_audio_tabs', 'settings',
+   ]
+ 
+@@ -305,10 +299,6 @@ async function createNavElement(id?: ID): Promise<ID | undefined> {
+     const panelConf = SidebarConfig.createHistoryPanelConfig()
+     SidebarConfig.reactive.panels[panelConf.id] = panelConf
+     return panelConf.id
+-  } else if (id === 'sync') {
+-    const panelConf = SidebarConfig.createSyncPanelConfig()
+-    SidebarConfig.reactive.panels[panelConf.id] = panelConf
+-    return panelConf.id
+   } else if (id === 'sp') id = 'sp-' + Utils.uid()
+   else if (id === 'sd') id = 'sd-' + Utils.uid()
+ 
+diff --git a/src/page.setup/components/keybindings.vue b/src/page.setup/components/keybindings.vue
+--- a/src/page.setup/components/keybindings.vue
++++ b/src/page.setup/components/keybindings.vue
+@@ -23,7 +23,6 @@
+     KeybindingField(:keybinding="Keybindings.reactive.byName.copy_tmplt_3")
+     KeybindingField(:keybinding="Keybindings.reactive.byName.copy_tmplt_4")
+     KeybindingField(:keybinding="Keybindings.reactive.byName.open_bookmarks_sub_panel")
+-    KeybindingField(:keybinding="Keybindings.reactive.byName.open_sync_popup")
+ 
+   section
+     h2 {{translate('settings.kb_switching_panel')}}
+diff --git a/src/styles/page.setup/setup.styl b/src/styles/page.setup/setup.styl
+--- a/src/styles/page.setup/setup.styl
++++ b/src/styles/page.setup/setup.styl
+@@ -18,7 +18,6 @@ vendors = official
+ @import '../popup.notifications'
+ 
+ @import './settings'
+-@import './settings.sync'
+ @import './settings.details-box'
+ @import './settings.storage'
+ @import './settings.keybindings'
