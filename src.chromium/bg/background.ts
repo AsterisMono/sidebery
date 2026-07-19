@@ -21,6 +21,7 @@ import {
   markBackgroundFailed,
   markBackgroundReady,
   setupBackgroundLivenessListener,
+  waitForBackgroundReady,
 } from 'src/platform/background-ready'
 
 // This listener is installed before any asynchronous startup work so a page can
@@ -84,50 +85,16 @@ async function main(): Promise<void> {
   IPC.setupGlobalMessageListener()
   IPC.setupConnectionListener()
 
-  // Container initialization requires contextualIdentities and is replaced in Plan 10.
-  await Promise.all([Windows.load(), Settings.load(), Info.loadVersionInfo()])
-
-  Info.saveVersion()
+  // Register wake-capable browser events before the first await. Tabs and the
+  // Chromium windows overlay defer their handlers until live state is loaded.
   Windows.setupWindowsListeners()
-  Settings.setupSettingsChangeListener()
-
-  await Sidebar.load()
-  Sidebar.setupListeners()
-
-  WebReq.updateReqHandlers()
-
   Tabs.setupListeners()
-  await Tabs.load()
-
-  await Permissions.load()
+  Settings.setupSettingsChangeListener()
+  Sidebar.setupListeners()
   Permissions.setupListeners()
-  await Favicons.load()
-  // Browser-action context menus use MV2 onclick handlers. Plan 15 replaces them
-  // with a cold-start-safe contextMenus.onClicked dispatcher.
-  await Snapshots.scheduleSnapshots()
-
-  // Update title preface on sidebar connection/disconnection
-  IPC.onConnected(E.InstanceType.sidebar, winId => {
-    Logs.info('IPC.onConnected sidebar', winId)
-
-    const tabs = Windows.byId.get(winId)?.tabs
-    if (tabs) Tabs.initInternalPageScripts(tabs)
-
-    if (Settings.state.markWindow && winId !== NOID) {
-      IPC.sendToSidebar(winId, 'updWindowPreface')
-    }
-  })
-  IPC.onDisconnected(E.InstanceType.sidebar, winId => {
-    Logs.info('IPC.onDisconnected sidebar', winId)
-
-    if (Settings.state.markWindow && Windows.byId.has(winId)) {
-      browser.windows.update(winId, { titlePreface: '' })
-    }
-  })
-
   initToolbarButton()
-  await Styles.load()
-  Styles.setupListeners()
+  Omnibox.setupListeners()
+  setupSidebarConnectionHandlers()
 
   browser.runtime.onUpdateAvailable.addListener(details => {
     const currentVersion = Info.versionToInt(browser.runtime.getManifest().version)
@@ -135,7 +102,25 @@ async function main(): Promise<void> {
     if (newVersion <= currentVersion) browser.runtime.reload()
   })
 
-  Omnibox.setupListeners()
+  // Container initialization requires contextualIdentities and is replaced in Plan 10.
+  await Promise.all([Windows.load(), Settings.load(), Info.loadVersionInfo()])
+
+  Info.saveVersion()
+
+  await Sidebar.load()
+
+  WebReq.updateReqHandlers()
+
+  await Tabs.load()
+
+  await Permissions.load()
+  await Favicons.load()
+  // Browser-action context menus use MV2 onclick handlers. Plan 15 replaces them
+  // with a cold-start-safe contextMenus.onClicked dispatcher.
+  await Snapshots.scheduleSnapshots()
+
+  await Styles.load()
+  Styles.setupListeners()
   await Omnibox.load()
 
   Logs.info(`Init end: ${performance.now() - ts}ms`)
@@ -152,6 +137,34 @@ async function main(): Promise<void> {
       byId: Tabs.byId,
       cacheByWin: Tabs.cacheByWin,
     },
+  })
+}
+
+function setupSidebarConnectionHandlers(): void {
+  IPC.onConnected(E.InstanceType.sidebar, winId => {
+    void waitForBackgroundReady()
+      .then(() => {
+        Logs.info('IPC.onConnected sidebar', winId)
+
+        const tabs = Windows.byId.get(winId)?.tabs
+        if (tabs) Tabs.initInternalPageScripts(tabs)
+
+        if (Settings.state.markWindow && winId !== NOID) {
+          IPC.sendToSidebar(winId, 'updWindowPreface')
+        }
+      })
+      .catch(() => undefined)
+  })
+  IPC.onDisconnected(E.InstanceType.sidebar, winId => {
+    void waitForBackgroundReady()
+      .then(() => {
+        Logs.info('IPC.onDisconnected sidebar', winId)
+
+        if (Settings.state.markWindow && Windows.byId.has(winId)) {
+          browser.windows.update(winId, { titlePreface: '' })
+        }
+      })
+      .catch(() => undefined)
   })
 }
 

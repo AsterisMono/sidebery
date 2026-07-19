@@ -1,0 +1,108 @@
+# Gate background actions on service-worker rehydration and defer browser events
+# that arrive while live window/tab state is still being queried.
+diff --git a/src/services/ipc.ts b/src/services/ipc.ts
+--- a/src/services/ipc.ts
++++ b/src/services/ipc.ts
+@@ -4,6 +4,7 @@ import { rmFromArray } from 'src/utils'
+ import { NOID } from 'src/defaults'
+ import * as Logs from 'src/services/logs'
+ import * as Info from 'src/services/info'
++import { isBackgroundPing, waitForBackgroundReady } from 'src/platform/background-ready'
+ 
+ export interface PortNameData {
+   srcType: InstanceType
+@@ -879,6 +880,7 @@ async function onPostMsg<T extends InstanceType, A extends keyof Actions>(
+   // Run an action
+   let result, error
+   try {
++    if (_localType === InstanceType.bg) await waitForBackgroundReady()
+     result = runActionFor(msg)
+   } catch (err) {
+     error = String(err)
+@@ -933,14 +935,18 @@ async function onPostMsg<T extends InstanceType, A extends keyof Actions>(
+  * checks destination
+  * and sends result back.
+  */
+-function onSendMsg<T extends InstanceType, A extends keyof Actions>(msg: Message<T, A>) {
++async function onSendMsg<T extends InstanceType, A extends keyof Actions>(msg: Message<T, A>) {
++  // The dedicated listener owns the service-worker liveness response.
++  if (isBackgroundPing(msg)) return
++
+   // Check if this instance is the correct destination
+   if (msg.dstWinId !== undefined && msg.dstWinId !== _localWinId) return
+   if (msg.dstType !== undefined && msg.dstType !== _localType) return
+ 
+   // Run an action
+   let result
+   try {
++    if (_localType === InstanceType.bg) await waitForBackgroundReady()
+     result = runActionFor(msg)
+   } catch (err) {
+     Logs.err(`IPC.onSendMsg: Error on running "${String(msg.action)}" action:`, err)
+diff --git a/src/services/windows.bg.ts b/src/services/windows.bg.ts
+--- a/src/services/windows.bg.ts
++++ b/src/services/windows.bg.ts
+@@ -13,11 +13,16 @@ import { translate } from 'src/dict'
+ export const byId = new Map<ID, BgWindow>()
+ export let lastFocusedId = NOID
+ export let focusedId = NOID
++export let ready = false
++export let deferredEventHandling: (() => void)[] = []
+ 
+ export async function load(): Promise<void> {
+   Logs.info('Windows.bg.load')
++  ready = false
+   const nativeWindows = await browser.windows.getAll({ windowTypes: ['normal'], populate: false })
+   byId.clear()
++  lastFocusedId = NOID
++  focusedId = NOID
+   for (const nativeWindow of nativeWindows) {
+     if (nativeWindow.type !== 'normal' || nativeWindow.id === undefined) continue
+     const window = mutateNativeWindowToSideberyWindow(nativeWindow)
+@@ -27,6 +32,13 @@ export async function load(): Promise<void> {
+       focusedId = window.id
+     }
+   }
++  ready = true
++  if (deferredEventHandling.length) {
++    Logs.warn('Windows: Deferred event handlers:', deferredEventHandling.length)
++  }
++  const deferred = deferredEventHandling
++  deferredEventHandling = []
++  deferred.forEach(handle => handle())
+ }
+ 
+ const lockedWindowsTabs: Record<ID, boolean | { move: boolean; cache: TabCache[] }> = {}
+@@ -227,6 +239,10 @@ function mutateNativeWindowToSideberyWindow(nativeWin: browser.windows.Window):
+ }
+ 
+ function onWindowCreated(nativeWin: browser.windows.Window): void {
++  if (!ready) {
++    deferredEventHandling.push(() => onWindowCreated(nativeWin))
++    return
++  }
+   const window = mutateNativeWindowToSideberyWindow(nativeWin)
+   if (window.id === NOID) {
+     Logs.warn('Windows.onWindowCreated: window.id === NOID')
+@@ -248,6 +264,10 @@ function onWindowCreated(nativeWin: browser.windows.Window): void {
+ }
+ 
+ function onWindowRemoved(windowId: ID): void {
++  if (!ready) {
++    deferredEventHandling.push(() => onWindowRemoved(windowId))
++    return
++  }
+   const window = byId.get(windowId)
+   if (!window) return
+ 
+@@ -264,6 +284,10 @@ function onWindowRemoved(windowId: ID): void {
+ }
+ 
+ function onWindowFocused(windowId: ID): void {
++  if (!ready) {
++    deferredEventHandling.push(() => onWindowFocused(windowId))
++    return
++  }
+   // Unfocused
+   if (windowId === -1) {
+     for (const [id, window] of byId) {
