@@ -1,0 +1,46 @@
+diff --git a/src/services/windows.fg.ts b/src/services/windows.fg.ts
+--- a/src/services/windows.fg.ts
++++ b/src/services/windows.fg.ts
+@@ -1,8 +1,16 @@
+-import { Reactivator, Window, WindowChooseOption, WindowChoosingDetails } from 'src/types'
++import {
++  Reactivator,
++  Stored,
++  Window,
++  WindowChooseOption,
++  WindowChoosingDetails,
++} from 'src/types'
+ import { NOID } from 'src/defaults'
+ import * as Preview from 'src/services/tabs.fg.preview'
+ import * as Utils from 'src/utils'
+ import * as Logs from 'src/services/logs'
+ import * as Settings from 'src/services/settings'
+ import * as Sidebar from 'src/services/sidebar.fg'
+ import * as Info from 'src/services/info'
++import type { ChromiumRestoreTab } from 'src/platform/tab-cache'
++import { findUniqWinIdForLiveTabs } from 'src/platform/tab-cache'
+@@ -41,14 +49,24 @@ export async function load(): Promise<void> {
+   const winData = await Promise.all([
+     browser.windows.getCurrent({ populate: false }),
+     browser.sessions.getWindowValue<string>(browser.windows.WINDOW_ID_CURRENT, 'uniqWinId'),
++    browser.tabs.query({ windowId: browser.windows.WINDOW_ID_CURRENT }),
++    browser.storage.local.get<Stored>('tabsDataCache'),
+   ])
+   const currentWindow = winData[0]
+   uniqWinId = winData[1] ?? NOID
++  const currentTabs = winData[2]
++  const tabsDataCache = winData[3].tabsDataCache
+ 
+   // Workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=1660564
+   if (Info.isSidebar && currentWindow.type !== 'normal') {
+     // Sidebar is launched in popup windows.
+     throw `1660564`
+   }
++
++  // storage.session ends at a full browser restart. Reuse the identity embedded
++  // in local tab cache only when the current tab sequence has one clear match.
++  if (uniqWinId === NOID && tabsDataCache) {
++    uniqWinId = findUniqWinIdForLiveTabs(currentTabs as ChromiumRestoreTab[], tabsDataCache) ?? NOID
++  }
+ 
+   // Generate unique window id

@@ -68,3 +68,12 @@ that window ID. No step depends on a Firefox sidebar URL or `sidebar_action` API
 10. Terminate the worker from `chrome://extensions`, then interact with a tab while a panel is
     open. Confirm the worker wakes, rehydrates, accepts the sidebar Port, and tab events continue
     after the readiness barrier without duplicate tabs or cross-window routing.
+
+### Full-restart window identity degradation
+
+- With two windows containing different tab sequences, restart Chrome and confirm each sidebar
+  reuses the `uniqWinId` embedded in its matching local `tabsDataCache` entry.
+- Repeat with two windows that have identical tab sequences. The local match is intentionally
+  treated as ambiguous, so one or both windows can receive a new identity. This accepted
+  degradation affects snapshot window grouping only; it must not cross-route sidebar IPC or
+  restore another window's tree.
