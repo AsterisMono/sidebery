@@ -19,26 +19,48 @@ diff --git a/src/services/ipc.ts b/src/services/ipc.ts
      result = runActionFor(msg)
    } catch (err) {
      error = String(err)
-@@ -933,14 +935,18 @@ async function onPostMsg<T extends InstanceType, A extends keyof Actions>(
+@@ -933,20 +935,29 @@ async function onPostMsg<T extends InstanceType, A extends keyof Actions>(
   * checks destination
   * and sends result back.
   */
 -function onSendMsg<T extends InstanceType, A extends keyof Actions>(msg: Message<T, A>) {
-+async function onSendMsg<T extends InstanceType, A extends keyof Actions>(msg: Message<T, A>) {
++function onSendMsg<T extends InstanceType, A extends keyof Actions>(msg: Message<T, A>) {
 +  // The dedicated listener owns the service-worker liveness response.
-+  if (isBackgroundPing(msg)) return
++  if (isBackgroundPing(msg)) {
++    if (_localType !== InstanceType.bg) return
++    return waitForBackgroundReady().then(() => true)
++  }
 +
    // Check if this instance is the correct destination
    if (msg.dstWinId !== undefined && msg.dstWinId !== _localWinId) return
    if (msg.dstType !== undefined && msg.dstType !== _localType) return
  
-   // Run an action
-   let result
-   try {
-+    if (_localType === InstanceType.bg) await waitForBackgroundReady()
-     result = runActionFor(msg)
-   } catch (err) {
-     Logs.err(`IPC.onSendMsg: Error on running "${String(msg.action)}" action:`, err)
+-  // Run an action
+-  let result
+-  try {
+-    result = runActionFor(msg)
+-  } catch (err) {
+-    Logs.err(`IPC.onSendMsg: Error on running "${String(msg.action)}" action:`, err)
+-  }
+-
+-  // Send the result
+-  if (result instanceof Promise) return result
+-  else if (result !== undefined) return Promise.resolve(result)
++  const runAction = () => {
++    let result
++    try {
++      result = runActionFor(msg)
++    } catch (err) {
++      Logs.err(`IPC.onSendMsg: Error on running "${String(msg.action)}" action:`, err)
++    }
++
++    if (result instanceof Promise) return result
++    if (result !== undefined) return Promise.resolve(result)
++  }
++
++  if (_localType === InstanceType.bg) return waitForBackgroundReady().then(runAction)
++  return runAction()
+ }
 diff --git a/src/services/windows.bg.ts b/src/services/windows.bg.ts
 --- a/src/services/windows.bg.ts
 +++ b/src/services/windows.bg.ts

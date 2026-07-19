@@ -86,11 +86,24 @@ async function main() {
   let firstBuild = true
   const buildTasks = []
 
+  // Keep the service worker isolated from chunks shared with DOM-backed pages.
+  // Otherwise a foreground-only module-level global in a shared chunk can crash
+  // the worker before its entry has a chance to register wake listeners.
+  const backgroundScript = defineConfig({
+    build: {
+      rolldownOptions: {
+        input: { 'bg/background': source('bg/background.ts') },
+        output: { codeSplitting: false },
+      },
+    },
+    plugins: [injectBrowserShim()],
+  })
+  buildTasks.push(build(mergeConfig(base, backgroundScript, true)))
+
   const splittedScripts = defineConfig({
     build: {
       rollupOptions: {
         input: {
-          'bg/background': source('bg/background.ts'),
           'sidebar/sidebar': source('sidebar/sidebar.ts'),
           'page.setup/setup': source('page.setup/setup.ts'),
           'popup.panel-config/panel-config': source('popup.panel-config/panel-config.ts'),

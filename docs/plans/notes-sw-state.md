@@ -25,8 +25,9 @@ rebuilt or lost whenever Chromium terminates and later restarts the MV3 backgrou
   sidebar active-panel debounce, and omnibox command debounce reset. Their next live event or
   startup load reconstructs the in-memory view, but the most recent delayed write can be lost.
 - Snapshot scheduling still uses `setTimeout`; it must move to a reasserted `chrome.alarms`
-  schedule. Snapshot auto-export also calls `URL.createObjectURL`, which is unavailable in a
-  service worker. Both are deferred to the later resilience/export work.
+  schedule. Snapshot auto-export converts Blob contents to `data:` URLs because
+  `URL.createObjectURL` is unavailable in a service worker; large-export behavior still needs
+  browser-level verification.
 - Sync, containers, and request-routing state are not initialized on Chromium until their
   no-op service overlays land. Browser-action menus are likewise skipped until the persistent,
   id-based `contextMenus.onClicked` dispatcher replaces MV2 `onclick` closures.

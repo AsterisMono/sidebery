@@ -20,13 +20,9 @@ import * as Styles from 'src/services/styles.bg'
 import {
   markBackgroundFailed,
   markBackgroundReady,
-  setupBackgroundLivenessListener,
   waitForBackgroundReady,
 } from 'src/platform/background-ready'
 
-// This listener is installed before any asynchronous startup work so a page can
-// wake the worker and wait until its state has been rehydrated.
-setupBackgroundLivenessListener()
 void main().then(markBackgroundReady).catch(error => {
   markBackgroundFailed(error)
   Logs.err('Background initialization failed', error)
@@ -74,7 +70,9 @@ async function main(): Promise<void> {
     getDataFromSync: Sync.getData,
     loadSync: Sync.load,
 
-    getContainers: Containers.getContainers,
+    // Sidebar startup asks for containers. Return the Chromium empty state until
+    // Plan 9 supplies the full service-shaped no-op overlays.
+    getContainers: async () => ({}),
     setContainers: Containers.setContainers,
     createContainer: Containers.createAndSave,
     removeContainer: Containers.removeAndSave,
@@ -102,7 +100,7 @@ async function main(): Promise<void> {
     if (newVersion <= currentVersion) browser.runtime.reload()
   })
 
-  // Container initialization requires contextualIdentities and is replaced in Plan 10.
+  // Container initialization requires contextualIdentities and is replaced in Plan 9.
   await Promise.all([Windows.load(), Settings.load(), Info.loadVersionInfo()])
 
   Info.saveVersion()

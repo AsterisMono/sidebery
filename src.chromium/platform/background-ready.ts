@@ -39,10 +39,3 @@ export function isBackgroundPing(message: unknown): boolean {
 export function createBackgroundPing(): { type: string } {
   return { type: BACKGROUND_PING }
 }
-
-export function setupBackgroundLivenessListener(): void {
-  browser.runtime.onMessage.addListener(message => {
-    if (!isBackgroundPing(message)) return
-    return waitForBackgroundReady().then(() => true)
-  })
-}
