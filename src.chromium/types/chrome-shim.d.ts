@@ -131,6 +131,12 @@ interface ChromiumNotificationsApi {
   clear(id: string): Promise<boolean>
 }
 
+interface ChromiumSessionsApi {
+  getRecentlyClosed(filter?: browser.sessions.Filter): Promise<browser.sessions.Session[]>
+  restore(sessionId: string): Promise<browser.sessions.Session>
+  onChanged: typeof browser.sessions.onChanged
+}
+
 interface ChromiumApi {
   tabs: ChromiumTabsApi
   windows: ChromiumWindowsApi
@@ -143,7 +149,7 @@ interface ChromiumApi {
   alarms: ChromiumAlarmsApi
   action: typeof browser.browserAction
   commands: typeof browser.commands
-  sessions: typeof browser.sessions
+  sessions: ChromiumSessionsApi
   bookmarks: typeof browser.bookmarks
   history: typeof browser.history
   downloads: typeof browser.downloads
@@ -155,3 +161,8 @@ interface ChromiumApi {
 }
 
 declare const chrome: ChromiumApi
+
+declare namespace browser.sessions {
+  function removeTabValue(tabId: ID, key: string): Promise<void>
+  function removeWindowValue(windowId: ID, key: string): Promise<void>
+}

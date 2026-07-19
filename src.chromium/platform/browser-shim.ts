@@ -157,16 +157,80 @@ const menus = {
   onHidden: inertEvent,
 }
 
+function tabValueStorageKey(tabId: ID, key: string): string {
+  return `tv:${tabId}:${key}`
+}
+
+async function resolveWindowId(windowId: ID): Promise<ID> {
+  if (windowId !== chrome.windows.WINDOW_ID_CURRENT) return windowId
+  const currentWindow = await chrome.windows.getCurrent({ populate: false })
+  if (currentWindow.id === undefined) {
+    throw new Error('Cannot resolve browser.windows.WINDOW_ID_CURRENT for session value')
+  }
+  return currentWindow.id
+}
+
+async function windowValueStorageKey(windowId: ID, key: string): Promise<string> {
+  return `wv:${await resolveWindowId(windowId)}:${key}`
+}
+
+async function setSessionValue<T>(storageKey: string, value: T): Promise<void> {
+  await chrome.storage.session.set<Record<string, T>>({ [storageKey]: value })
+}
+
+async function getSessionValue<T>(storageKey: string): Promise<T | undefined> {
+  const stored = await chrome.storage.session.get<Record<string, T>>(storageKey)
+  return stored[storageKey]
+}
+
+async function removeSessionValue(storageKey: string): Promise<void> {
+  await chrome.storage.session.remove<Record<string, unknown>>(storageKey)
+}
+
+async function removeSessionValuesWithPrefix(prefix: string): Promise<void> {
+  const stored = await chrome.storage.session.get<Record<string, unknown>>(null)
+  const keys = Object.keys(stored).filter(key => key.startsWith(prefix))
+  if (keys.length) await chrome.storage.session.remove<Record<string, unknown>>(keys)
+}
+
+chrome.tabs.onRemoved.addListener(tabId => {
+  void removeSessionValuesWithPrefix(`tv:${tabId}:`).catch(error => {
+    console.warn(`Cannot clean Chromium session values for tab ${tabId}:`, error)
+  })
+})
+
+chrome.windows.onRemoved.addListener(windowId => {
+  void removeSessionValuesWithPrefix(`wv:${windowId}:`).catch(error => {
+    console.warn(`Cannot clean Chromium session values for window ${windowId}:`, error)
+  })
+})
+
 const sessions = {
   ...chrome.sessions,
-  getRecentlyClosed: chrome.sessions.getRecentlyClosed,
-  restore: chrome.sessions.restore,
-
-  // TODO(Plan 5): emulate per-tab/window values with chrome.storage.session.
-  setTabValue: pendingAdapter('sessions.setTabValue'),
-  getTabValue: pendingAdapter('sessions.getTabValue'),
-  setWindowValue: pendingAdapter('sessions.setWindowValue'),
-  getWindowValue: pendingAdapter('sessions.getWindowValue'),
+  getRecentlyClosed(filter?: browser.sessions.Filter): Promise<browser.sessions.Session[]> {
+    return chrome.sessions.getRecentlyClosed(filter)
+  },
+  restore(sessionId: string): Promise<browser.sessions.Session> {
+    return chrome.sessions.restore(sessionId)
+  },
+  setTabValue<T>(tabId: ID, key: string, value: T): Promise<void> {
+    return setSessionValue(tabValueStorageKey(tabId, key), value)
+  },
+  getTabValue<T>(tabId: ID, key: string): Promise<T | undefined> {
+    return getSessionValue<T>(tabValueStorageKey(tabId, key))
+  },
+  removeTabValue(tabId: ID, key: string): Promise<void> {
+    return removeSessionValue(tabValueStorageKey(tabId, key))
+  },
+  async setWindowValue<T>(windowId: ID, key: string, value: T): Promise<void> {
+    await setSessionValue(await windowValueStorageKey(windowId, key), value)
+  },
+  async getWindowValue<T>(windowId: ID, key: string): Promise<T | undefined> {
+    return getSessionValue<T>(await windowValueStorageKey(windowId, key))
+  },
+  async removeWindowValue(windowId: ID, key: string): Promise<void> {
+    await removeSessionValue(await windowValueStorageKey(windowId, key))
+  },
 }
 
 const commands = {
