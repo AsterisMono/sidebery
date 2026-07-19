@@ -83,12 +83,48 @@ const tabsOnUpdated = {
   },
 }
 
+function normalizeInjectionFile(file: string): string {
+  return file.replace(/^(?:\.\.?\/)+/, '')
+}
+
+async function executeScript(
+  tabId: ID,
+  details: browser.tabs.ExecuteOpts
+): Promise<any[]> {
+  if (typeof tabId !== 'number') {
+    throw new Error(`browser.tabs.executeScript requires a numeric tab id, got ${String(tabId)}`)
+  }
+  if (details.code !== undefined) {
+    throw new Error(
+      'browser.tabs.executeScript({ code }) cannot be translated safely to MV3; ' +
+        'replace the force-discard call in tabs.fg.ts with chrome.scripting { func, args } ' +
+        '(Plan 16)'
+    )
+  }
+  if (!details.file) {
+    throw new Error('browser.tabs.executeScript requires a file on Chromium')
+  }
+
+  const target: ChromiumInjectionTarget = { tabId }
+  if (details.frameId !== undefined) target.frameIds = [details.frameId]
+  else if (details.allFrames !== undefined) target.allFrames = details.allFrames
+
+  const injection: ChromiumScriptInjection = {
+    target,
+    files: [normalizeInjectionFile(details.file)],
+  }
+  if (details.runAt === 'document_start') injection.injectImmediately = true
+
+  // Chrome has no matchAboutBlank equivalent for dynamic scripting. None of
+  // Sidebery's remaining file-injection callers require it.
+  const results = await chrome.scripting.executeScript(injection)
+  return results.map(result => result.result)
+}
+
 const tabs = {
   ...chrome.tabs,
   onUpdated: tabsOnUpdated,
-
-  // TODO(Plan 5): translate this to chrome.scripting.executeScript().
-  executeScript: pendingAdapter('tabs.executeScript'),
+  executeScript,
 
   // Chromium selects successor tabs natively.
   moveInSuccession: async (): Promise<void> => {},
