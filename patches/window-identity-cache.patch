@@ -1,24 +1,21 @@
 diff --git a/src/services/windows.fg.ts b/src/services/windows.fg.ts
 --- a/src/services/windows.fg.ts
 +++ b/src/services/windows.fg.ts
-@@ -1,8 +1,16 @@
+@@ -1,4 +1,4 @@
 -import { Reactivator, Window, WindowChooseOption, WindowChoosingDetails } from 'src/types'
-+import {
-+  Reactivator,
-+  Stored,
-+  Window,
-+  WindowChooseOption,
-+  WindowChoosingDetails,
-+} from 'src/types'
++import { Reactivator, Stored, Window, WindowChooseOption, WindowChoosingDetails } from 'src/types'
  import { NOID } from 'src/defaults'
  import * as Preview from 'src/services/tabs.fg.preview'
  import * as Utils from 'src/utils'
- import * as Logs from 'src/services/logs'
+@@ -6,6 +6,8 @@
  import * as Settings from 'src/services/settings'
  import * as Sidebar from 'src/services/sidebar.fg'
  import * as Info from 'src/services/info'
 +import type { ChromiumRestoreTab } from 'src/platform/tab-cache'
 +import { findUniqWinIdForLiveTabs } from 'src/platform/tab-cache'
+ 
+ export interface WindowsState {
+   choosing: WindowChooseOption[] | null
 @@ -41,14 +49,24 @@ export async function load(): Promise<void> {
    const winData = await Promise.all([
      browser.windows.getCurrent({ populate: false }),

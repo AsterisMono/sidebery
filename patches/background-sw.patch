@@ -91,6 +91,15 @@ diff --git a/src/services/favicons.bg.ts b/src/services/favicons.bg.ts
 diff --git a/src/services/snapshots.bg.ts b/src/services/snapshots.bg.ts
 --- a/src/services/snapshots.bg.ts
 +++ b/src/services/snapshots.bg.ts
+@@ -138,7 +138,7 @@ export async function createSnapshot(auto = false): Promise<Snapshot | undefined
+   }
+ 
+   if (Settings.state.snapAutoExport) {
+-    exportSnapshot(currentSnapshot)
++    await exportSnapshot(currentSnapshot)
+   }
+ 
+   minimizeSnapshot(stored.snapshots, currentSnapshot)
 @@ -187,37 +187,46 @@ function getExportPath(expInfo: SnapExportInfo) {
    const normPath = normPathArr.join('/')
 -

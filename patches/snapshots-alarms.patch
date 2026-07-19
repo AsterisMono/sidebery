@@ -1,14 +1,14 @@
 diff --git a/src/services/snapshots.bg.ts b/src/services/snapshots.bg.ts
 --- a/src/services/snapshots.bg.ts
 +++ b/src/services/snapshots.bg.ts
-@@ -10,5 +10,6 @@
- import * as IPC from 'src/services/ipc'
+@@ -13,5 +13,6 @@
  import { ItemInfo } from 'src/types/tabs'
  import * as SidebarConf from 'src/services/sidebar-config'
 +import { waitForBackgroundReady } from 'src/platform/background-ready'
  
  import { GLOB_PINNED_ID, MAX_SIZE_LIMIT } from 'src/services/snapshots'
-@@ -25,6 +26,17 @@
+ import { getNormalizedSnapshot, minimizeSnapshot, prepareExport } from 'src/services/snapshots'
+@@ -26,6 +27,17 @@
  
  const MIN_SNAP_INTERVAL = 60_000
  const MIN_LIMITING_COUNT = 1
@@ -26,15 +26,6 @@ diff --git a/src/services/snapshots.bg.ts b/src/services/snapshots.bg.ts
  
  /**
   * Create base snapshot
-@@ -138,7 +150,7 @@
-   }
- 
-   if (Settings.state.snapAutoExport) {
--    exportSnapshot(currentSnapshot)
-+    await exportSnapshot(currentSnapshot)
-   }
- 
-   minimizeSnapshot(stored.snapshots, currentSnapshot)
 @@ -253,26 +265,27 @@
  }
  
