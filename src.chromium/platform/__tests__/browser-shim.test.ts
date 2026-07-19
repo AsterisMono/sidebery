@@ -48,6 +48,7 @@ function createStorageArea() {
 }
 
 let tabsOnUpdated: ReturnType<typeof createEvent<browser.tabs.UpdatedListener>>
+let tabsOnCreated: ReturnType<typeof createEvent<browser.tabs.CreatedListener>>
 let tabsOnActivated: ReturnType<typeof createEvent<(info: { tabId: ID; windowId: ID }) => void>>
 let tabsOnRemoved: ReturnType<typeof createEvent<browser.tabs.RemovedListener>>
 let tabsCreate: ReturnType<typeof vi.fn>
@@ -75,11 +76,17 @@ async function loadShim(): Promise<typeof browser> {
   delete (globalThis as any).__sideberyBrowser
 
   tabsOnUpdated = createEvent<browser.tabs.UpdatedListener>()
+  tabsOnCreated = createEvent<browser.tabs.CreatedListener>()
   tabsOnActivated = createEvent<(info: { tabId: ID; windowId: ID }) => void>()
   tabsOnRemoved = createEvent<browser.tabs.RemovedListener>()
   tabsCreate = vi.fn().mockImplementation(async details => ({ id: 99, windowId: 7, ...details }))
   tabsUpdate = vi.fn().mockImplementation(async (id, details) => ({ id, windowId: 7, ...details }))
-  tabsDuplicate = vi.fn().mockResolvedValue({ id: 100, windowId: 7, index: 3, active: true })
+  tabsDuplicate = vi.fn().mockImplementation(async () => {
+    const tab = { id: 100, windowId: 7, index: 3, active: true } as browser.tabs.Tab
+    tabsOnCreated.emit(tab)
+    tabsOnActivated.emit({ tabId: tab.id, windowId: tab.windowId })
+    return tab
+  })
   tabsGet = vi.fn().mockImplementation(async id => ({
     id,
     windowId: 7,
@@ -106,6 +113,7 @@ async function loadShim(): Promise<typeof browser> {
 
   ;(globalThis as any).chrome = {
     tabs: {
+      onCreated: tabsOnCreated,
       onUpdated: tabsOnUpdated,
       onActivated: tabsOnActivated,
       onRemoved: tabsOnRemoved,
@@ -291,13 +299,106 @@ describe('tabs creation and activation semantics', () => {
   })
 
   test('maps Firefox duplicate options to Chromium move and activation calls', async () => {
+    const onCreated = vi.fn()
+    browser.tabs.onCreated.addListener(onCreated)
     const duplicated = await browser.tabs.duplicate(22, { active: false, index: 6 })
 
     expect(chrome.tabs.query).toHaveBeenCalledWith({ active: true, windowId: 7 })
     expect(tabsDuplicate).toHaveBeenCalledWith(22)
     expect(tabsMove).toHaveBeenCalledWith(100, { index: 6 })
     expect(tabsUpdate).toHaveBeenCalledWith(10, { active: true })
+    expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 100, index: 6 }))
     expect(duplicated).toMatchObject({ id: 100, index: 6 })
+  })
+
+  test('waits for async creation handling before moving the duplicate', async () => {
+    let finishCreation!: () => void
+    const creationHandled = new Promise<void>(resolve => (finishCreation = resolve))
+    const order: string[] = []
+    browser.tabs.onCreated.addListener(async () => {
+      order.push('created')
+      await creationHandled
+      order.push('creation handled')
+    })
+    browser.tabs.onActivated.addListener(() => order.push('activated'))
+
+    const duplication = browser.tabs.duplicate(22, { index: 6 })
+    await vi.waitFor(() => expect(tabsDuplicate).toHaveBeenCalledOnce())
+    expect(tabsMove).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(order).toEqual(['created']))
+
+    finishCreation()
+    await duplication
+    expect(tabsMove).toHaveBeenCalledWith(100, { index: 6 })
+    expect(order).toEqual(['created', 'creation handled', 'activated'])
+  })
+
+  test('keeps exactly one active tab across repeated duplications', async () => {
+    let nextDuplicateId = 100
+    tabsDuplicate.mockImplementation(async () => {
+      const tab = {
+        id: nextDuplicateId++,
+        windowId: 7,
+        index: 3,
+        active: true,
+      } as browser.tabs.Tab
+      tabsOnCreated.emit(tab)
+      tabsOnActivated.emit({ tabId: tab.id, windowId: tab.windowId })
+      return tab
+    })
+
+    let activeId = 10
+    const activeById = new Map<ID, boolean>([[activeId, true]])
+    browser.tabs.onCreated.addListener(tab => activeById.set(tab.id, tab.active))
+    browser.tabs.onActivated.addListener(info => {
+      activeById.set(activeId, false)
+      activeById.set(info.tabId, true)
+      activeId = info.tabId
+    })
+
+    await browser.tabs.duplicate(10, { active: true, index: 6 })
+    await browser.tabs.duplicate(100, { active: true, index: 7 })
+
+    const activeIds = [...activeById].filter(([, active]) => active).map(([id]) => id)
+    expect(activeIds).toEqual([101])
+  })
+
+  test('clears the duplicate active flag after restoring a background activation', async () => {
+    tabsUpdate.mockImplementationOnce(async (id, details) => {
+      if (details.active) tabsOnActivated.emit({ tabId: id, windowId: 7 })
+      return { id, windowId: 7, ...details }
+    })
+
+    let activeId = 10
+    const activeById = new Map<ID, boolean>([[activeId, true]])
+    browser.tabs.onCreated.addListener(tab => activeById.set(tab.id, tab.active))
+    browser.tabs.onActivated.addListener(info => {
+      activeById.set(activeId, false)
+      activeById.set(info.tabId, true)
+      activeId = info.tabId
+    })
+
+    await browser.tabs.duplicate(22, { active: false, index: 6 })
+
+    const activeIds = [...activeById].filter(([, active]) => active).map(([id]) => id)
+    expect(activeIds).toEqual([10])
+  })
+
+  test('coordinates creation events delivered after the native duplicate result', async () => {
+    const nativeTab = { id: 101, windowId: 7, index: 3, active: true } as browser.tabs.Tab
+    tabsDuplicate.mockResolvedValueOnce(nativeTab)
+    tabsGet.mockResolvedValueOnce({ ...nativeTab, index: 7 })
+    const onCreated = vi.fn()
+    browser.tabs.onCreated.addListener(onCreated)
+
+    const duplication = browser.tabs.duplicate(22, { index: 7 })
+    await vi.waitFor(() => expect(tabsDuplicate).toHaveBeenCalledOnce())
+    expect(tabsMove).not.toHaveBeenCalled()
+
+    tabsOnCreated.emit(nativeTab)
+    await duplication
+    expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 101, index: 7 }))
+    expect(tabsMove).toHaveBeenCalledWith(101, { index: 7 })
   })
 
   test('does not pass Firefox duplicate options to Chromium', async () => {

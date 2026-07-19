@@ -1,0 +1,20 @@
+# Accept Chromium move events that arrive after the foreground model reached their destination.
+diff --git a/src/services/tabs.fg.handlers.ts b/src/services/tabs.fg.handlers.ts
+--- a/src/services/tabs.fg.handlers.ts
++++ b/src/services/tabs.fg.handlers.ts
+@@ -20,6 +20,7 @@ import * as Links from 'src/services/links'
+ import * as Info from 'src/services/info.fg'
+ import * as PlatformUrls from 'src/platform/urls'
+ import { replaceId, replaceTabId } from 'src/platform/tab-id-replacement'
++import { isTabAtMoveDestination } from 'src/platform/tab-move'
+ 
+ const EXT_HOST = new URL(browser.runtime.getURL('')).hostname
+ const URL_HOST_PATH_RE = /^([a-z0-9-]{1,63}\.)+\w+(:\d+)?\/[A-Za-z0-9-._~:/?#[\]%@!$&'()*+,;=]*$/
+@@ -1478,6 +1479,7 @@ function onTabMoved(id: ID, info: browser.tabs.MoveInfo): void {
+     Logs.warn(msg)
+     return
+   }
++  if (isTabAtMoveDestination(Tabs.list, id, info.toIndex)) return
+ 
+   Tabs.movingTabs.splice(Tabs.movingTabs.indexOf(id), 1)
+   const mvLen = Tabs.movingTabs.length

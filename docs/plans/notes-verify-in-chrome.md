@@ -178,7 +178,8 @@ code contains no DOM/canvas use, and media injection remains file-based.
   `discarded`, `title`, or `openInReaderMode` create property.
 - Duplicate one active tab, one background tab, and a selected parent/descendant tree. Confirm the
   copies land at Sidebery's requested positions, only the intended single duplicate becomes active,
-  and the console reports no `tabs.duplicate` signature error.
+  parent/panel relationships are preserved, and the console reports neither a `tabs.duplicate`
+  signature error nor `Tabs.onTabMoved: ... Not found by index` followed by `Tabs.reinitTabs`.
 - Open every nested in-panel context-menu branch. Moving focus between parent and child entries
   must not dismiss the menu; clicking a final action should execute it and then close normally.
 - Alternate rapidly between the Chrome tab strip and Sidebery in two windows. Exactly one tab per

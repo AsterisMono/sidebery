@@ -16,6 +16,7 @@ const inertEvent = {
 }
 
 const nativeTabsOnUpdated = chrome.tabs.onUpdated
+const nativeTabsOnCreated = chrome.tabs.onCreated
 const nativeTabsOnActivated = chrome.tabs.onActivated
 const nativeTabsOnRemoved = chrome.tabs.onRemoved
 const tabsOnUpdatedWrappers = new Map<
@@ -75,8 +76,73 @@ const tabsOnUpdated = {
   },
 }
 
+type PendingDuplicate = {
+  activationEvents: browser.tabs.ActiveInfo[]
+  nativeTabId: Promise<ID | undefined>
+  resolveNativeTabId: (tabId: ID | undefined) => void
+  createdProcessed: Promise<void>
+  resolveCreatedProcessed: () => void
+  targetIndex: number
+}
+
+const tabsOnCreatedListeners = new Set<browser.tabs.CreatedListener>()
+let pendingDuplicate: PendingDuplicate | undefined
+
+async function dispatchTabCreated(nativeTab: browser.tabs.Tab): Promise<void> {
+  const listeners = [...tabsOnCreatedListeners]
+  const duplicate = pendingDuplicate
+  const duplicateTabId = duplicate ? await duplicate.nativeTabId : undefined
+  let isPendingDuplicate = false
+  let tab = nativeTab
+  if (duplicate && duplicateTabId === nativeTab.id) {
+    isPendingDuplicate = true
+    tab = { ...nativeTab, index: duplicate.targetIndex }
+  }
+
+  const listenerResults: unknown[] = []
+  for (const listener of listeners) {
+    try {
+      listenerResults.push((listener as AnyFunction)(tab))
+    } catch (error) {
+      console.error('browser.tabs.onCreated listener failed:', error)
+    }
+  }
+
+  if (!isPendingDuplicate || !duplicate) return
+
+  // Unlike native Chrome events, Sidebery's async creation handler must finish
+  // projecting the tab at the Firefox-compatible target index before the shim
+  // performs Chrome's separate move operation.
+  await Promise.allSettled(listenerResults.map(result => Promise.resolve(result)))
+  duplicate.resolveCreatedProcessed()
+}
+
+nativeTabsOnCreated.addListener(nativeTab => {
+  void dispatchTabCreated(nativeTab)
+})
+
+const tabsOnCreated = {
+  addListener(listener: browser.tabs.CreatedListener): void {
+    tabsOnCreatedListeners.add(listener)
+  },
+  removeListener(listener: browser.tabs.CreatedListener): void {
+    tabsOnCreatedListeners.delete(listener)
+  },
+  hasListener(listener: browser.tabs.CreatedListener): boolean {
+    return tabsOnCreatedListeners.has(listener)
+  },
+}
+
 const tabsOnActivatedListeners = new Set<browser.tabs.ActivatedListener>()
 const activeTabByWindow = new Map<ID, ID>()
+
+function dispatchTabActivated(info: browser.tabs.ActiveInfo): void {
+  for (const listener of [...tabsOnActivatedListeners]) listener(info)
+}
+
+function flushDuplicateActivations(duplicate: PendingDuplicate): void {
+  for (const info of duplicate.activationEvents.splice(0)) dispatchTabActivated(info)
+}
 
 // Chrome omits Firefox's previousTabId. Seed and maintain it once per context,
 // then fan out one enriched event to every Sidebery listener.
@@ -89,7 +155,8 @@ nativeTabsOnActivated.addListener(info => {
   const previousTabId = activeTabByWindow.get(info.windowId) ?? -1
   activeTabByWindow.set(info.windowId, info.tabId)
   const enriched = { ...info, previousTabId }
-  for (const listener of [...tabsOnActivatedListeners]) listener(enriched)
+  if (pendingDuplicate) pendingDuplicate.activationEvents.push(enriched)
+  else dispatchTabActivated(enriched)
 })
 nativeTabsOnRemoved.addListener((tabId, info) => {
   if (activeTabByWindow.get(info.windowId) === tabId) {
@@ -149,6 +216,7 @@ async function executeScript(
 
 const tabs = {
   ...chrome.tabs,
+  onCreated: tabsOnCreated,
   onUpdated: tabsOnUpdated,
   onActivated: tabsOnActivated,
   executeScript,
@@ -183,38 +251,13 @@ const tabs = {
     return chrome.tabs.update(tabId, chromiumDetails)
   },
 
-  async duplicate(
-    tabId: ID,
-    details: browser.tabs.DuplOpts = {}
-  ): Promise<browser.tabs.Tab> {
-    let previouslyActiveTabId: ID | undefined
-    if (details.active === false) {
-      const sourceTab = await chrome.tabs.get(tabId)
-      const [activeTab] = await chrome.tabs.query({
-        active: true,
-        windowId: sourceTab.windowId,
-      })
-      previouslyActiveTabId = activeTab?.id
-    }
-
-    // Chrome accepts only the tab id and always creates an active duplicate
-    // immediately after the source tab. Apply Firefox's optional properties
-    // after duplication so upstream callers can keep their existing contract.
-    const duplicatedTab = await chrome.tabs.duplicate(tabId)
-    if (!duplicatedTab) throw new Error(`Chromium did not duplicate tab ${tabId}`)
-
-    if (details.index !== undefined && duplicatedTab.index !== details.index) {
-      await chrome.tabs.move(duplicatedTab.id, { index: details.index })
-    }
-    if (
-      details.active === false &&
-      previouslyActiveTabId !== undefined &&
-      previouslyActiveTabId !== duplicatedTab.id
-    ) {
-      await chrome.tabs.update(previouslyActiveTabId, { active: true })
-    }
-
-    return chrome.tabs.get(duplicatedTab.id)
+  duplicate(tabId: ID, details: browser.tabs.DuplOpts = {}): Promise<browser.tabs.Tab> {
+    const operation = duplicateQueue.then(() => duplicateTab(tabId, details))
+    duplicateQueue = operation.then(
+      () => undefined,
+      () => undefined
+    )
+    return operation
   },
 
   async discard(tabIds: ID | ID[]): Promise<void> {
@@ -237,6 +280,71 @@ const tabs = {
   captureTab: undefined,
   hide: undefined,
   show: undefined,
+}
+
+let duplicateQueue: Promise<void> = Promise.resolve()
+
+async function duplicateTab(tabId: ID, details: browser.tabs.DuplOpts): Promise<browser.tabs.Tab> {
+  let previouslyActiveTabId: ID | undefined
+  if (details.active === false) {
+    const sourceTab = await chrome.tabs.get(tabId)
+    const [activeTab] = await chrome.tabs.query({
+      active: true,
+      windowId: sourceTab.windowId,
+    })
+    previouslyActiveTabId = activeTab?.id
+  }
+
+  let duplicate: PendingDuplicate | undefined
+  if (details.index !== undefined) {
+    let resolveNativeTabId!: (tabId: ID | undefined) => void
+    let resolveCreatedProcessed!: () => void
+    duplicate = {
+      activationEvents: [],
+      nativeTabId: new Promise(resolve => (resolveNativeTabId = resolve)),
+      resolveNativeTabId,
+      createdProcessed: new Promise(resolve => (resolveCreatedProcessed = resolve)),
+      resolveCreatedProcessed,
+      targetIndex: details.index,
+    }
+    pendingDuplicate = duplicate
+  }
+
+  try {
+    // Chrome accepts only the tab id and always creates an active duplicate
+    // immediately after the source tab. Normalize its creation event to the
+    // requested Firefox index before applying Chrome's separate move.
+    const duplicatedTab = await chrome.tabs.duplicate(tabId)
+    duplicate?.resolveNativeTabId(duplicatedTab?.id)
+    if (!duplicatedTab) throw new Error(`Chromium did not duplicate tab ${tabId}`)
+
+    if (duplicate) {
+      await duplicate.createdProcessed
+      // Chrome can activate a duplicate before its onCreated event reaches
+      // Sidebery. Deliver that activation only after the tab exists in the
+      // foreground model so the previously active tab is cleared correctly.
+      flushDuplicateActivations(duplicate)
+    }
+
+    if (details.index !== undefined && duplicatedTab.index !== details.index) {
+      await chrome.tabs.move(duplicatedTab.id, { index: details.index })
+    }
+    if (
+      details.active === false &&
+      previouslyActiveTabId !== undefined &&
+      previouslyActiveTabId !== duplicatedTab.id
+    ) {
+      await chrome.tabs.update(previouslyActiveTabId, { active: true })
+      if (duplicate) flushDuplicateActivations(duplicate)
+    }
+
+    return chrome.tabs.get(duplicatedTab.id)
+  } finally {
+    duplicate?.resolveNativeTabId(undefined)
+    duplicate?.resolveCreatedProcessed()
+    if (duplicate) flushDuplicateActivations(duplicate)
+    if (pendingDuplicate === duplicate) pendingDuplicate = undefined
+  }
 }
 
 const windows = {
