@@ -131,3 +131,12 @@ that window ID. No step depends on a Firefox sidebar URL or `sidebar_action` API
   sidebar/setup page and confirm persisted data is present (a newest favicon may be regenerated).
 - Repeat the sequence with two open side panels and confirm reconnecting IPC ports route by the
   correct numeric window ID.
+
+## MV3 action menus
+
+- Right-click the extension action and confirm the menu has no more than six top-level entries;
+  **Open settings** opens setup and **Create snapshot** creates one snapshot.
+- With two or more cached windows, confirm reopen choices are nested under one parent and each
+  reconstructs the selected cached tree.
+- Terminate the worker and immediately choose each item; stable ID dispatch must work after cold
+  start. Reload the extension twice and confirm no duplicate-ID errors appear.

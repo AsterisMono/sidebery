@@ -1,0 +1,39 @@
+# MV3 context menus use stable IDs resolved by a top-level onClicked listener.
+diff --git a/src/services/tabs.bg.ts b/src/services/tabs.bg.ts
+--- a/src/services/tabs.bg.ts
++++ b/src/services/tabs.bg.ts
+@@ -108,9 +108,7 @@ export function createOpenFromCacheMenu() {
+ 
+     browser.menus.create({
+-      id: 'reopen_cached_win',
++      id: 'sidebery:reopen_cached_win:0',
+       title: translate('menu.browserAction.reopen_cached_win_first', winCache.length),
+-      icons: { '16': 'assets/window-native.svg' },
+-      onclick: () => openCachedWindow(winCache),
+-      contexts: ['browser_action'],
++      contexts: ['action' as browser.menus.ContextType],
+     })
+   }
+@@ -120,7 +118,6 @@ export function createOpenFromCacheMenu() {
+   else {
+     const parentId = browser.menus.create({
+-      id: 'reopen_cached_wins',
++      id: 'sidebery:reopen_cached_wins',
+       title: translate('menu.browserAction.reopen_cached_wins'),
+-      icons: { '16': 'assets/window-native.svg' },
+-      contexts: ['browser_action'],
++      contexts: ['action' as browser.menus.ContextType],
+     })
+@@ -136,10 +133,8 @@ export function createOpenFromCacheMenu() {
+ 
+       browser.menus.create({
+-        id: `reopen_cached_win_${i}`,
++        id: `sidebery:reopen_cached_win:${i}`,
+         parentId,
+         title: translate('menu.browserAction.reopen_cached_win', winCache.length, panelIds.size),
+-        icons: { '16': 'assets/window-native.svg' },
+-        onclick: () => openCachedWindow(winCache),
+-        contexts: ['browser_action'],
++        contexts: ['action' as browser.menus.ContextType],
+       })
+     }

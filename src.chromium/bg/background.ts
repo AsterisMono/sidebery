@@ -13,6 +13,7 @@ import * as Permissions from 'src/services/permissions.bg'
 import * as Snapshots from 'src/services/snapshots.bg'
 import * as Sidebar from 'src/services/sidebar.bg'
 import * as Info from 'src/services/info.bg'
+import * as Menu from 'src/services/menu.bg'
 import * as WebReq from 'src/services/web-req.bg'
 import * as Sync from 'src/services/sync.bg'
 import * as Omnibox from 'src/services/omnibox.bg'
@@ -123,6 +124,7 @@ async function main(): Promise<void> {
   WebReq.updateReqHandlers()
 
   await Tabs.load()
+  Menu.createBrowserActionMenu()
 
   await Permissions.load()
   await Favicons.load()
