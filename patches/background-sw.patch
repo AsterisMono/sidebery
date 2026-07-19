@@ -1,0 +1,57 @@
+# Keep shared modules safe when they are evaluated by the MV3 service worker.
+# Favicon canvas resizing remains a foreground concern on Chromium.
+diff --git a/src/services/settings.ts b/src/services/settings.ts
+--- a/src/services/settings.ts
++++ b/src/services/settings.ts
+@@ -35,7 +35,7 @@ export async function load(): Promise<void> {
+   const storedLocal = Utils.settledOr(localResult, {} as Stored)
+   if (!storedLocal.settings) {
+     // Respect prefersReducedMotion rule for default settings
+-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
++    const prefersReducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')
+     if (prefersReducedMotion?.matches) DEFAULT_SETTINGS.animations = false
+ 
+     storedLocal.settings = {} as SettingsState
+diff --git a/src/services/favicons.ts b/src/services/favicons.ts
+--- a/src/services/favicons.ts
++++ b/src/services/favicons.ts
+@@ -45,8 +45,9 @@ export async function loadFaviconsData() {
+   }
+ }
+ 
+-export const SIZE = Math.trunc(16 * window.devicePixelRatio)
+-const THRESHOLD_BYTES_DIFF = 150 * window.devicePixelRatio
++const DEVICE_PIXEL_RATIO = globalThis.devicePixelRatio ?? 1
++export const SIZE = Math.trunc(16 * DEVICE_PIXEL_RATIO)
++const THRESHOLD_BYTES_DIFF = 150 * DEVICE_PIXEL_RATIO
+ 
+ let favRescaleCanvas: HTMLCanvasElement | undefined
+ let favPrescaleCanvas: HTMLCanvasElement | undefined
+diff --git a/src/services/favicons.bg.ts b/src/services/favicons.bg.ts
+--- a/src/services/favicons.bg.ts
++++ b/src/services/favicons.bg.ts
+@@ -4,7 +4,7 @@ import * as IPC from 'src/services/ipc'
+ import * as Utils from 'src/utils'
+ import * as Store from 'src/services/storage.bg'
+ import { MAX_COUNT_LIMIT, MAX_IMG_SIZE, SHARD_SIZE } from './favicons'
+-import { loadFaviconsData, resizeFavicon } from './favicons'
++import { loadFaviconsData } from './favicons'
+ 
+ export * from './favicons'
+ 
+@@ -130,15 +130,6 @@ export function saveFavicon(url: string, base64icon: string): void {
+       }
+     }
+ 
+-    // Resize icon
+-    if (!iconAlreadyExists) {
+-      try {
+-        base64icon = await resizeFavicon(base64icon)
+-      } catch {
+-        return
+-      }
+-    }
+-
+     // Get target index
+     if (index === -1) {
+       // Replace random existed favicon
