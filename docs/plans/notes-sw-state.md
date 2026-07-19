@@ -73,3 +73,34 @@ The foreground debounce remains the coalescing boundary. Once its IPC message re
 background, there is no second timer, and the returned promise keeps the worker alive through
 the storage write. A full browser shutdown during the foreground debounce can still lose only
 the newest tree mutation; this is the accepted MV3 degradation.
+
+## Background service inventory (Plan 14)
+
+| Service | Class | Restart behavior |
+| --- | --- | --- |
+| `windows.bg` | A | Rebuilt from `windows.getAll`; native events queue until load completes. |
+| `tabs.bg` | A/C | Rebuilt from `tabs.query`; local tree cache is eager and serialized. Duplicate startup `onCreated` replay is ignored. |
+| `favicons.bg` | A/C | Index reloads from local storage. Per-URL timers only optimize a replaceable favicon cache, so losing the newest icon is acceptable. |
+| `snapshots.bg` | A/C | Snapshot data is local; the persistent named alarm is synchronously registered and reasserted at every start. |
+| `sidebar.bg` | A/B | Panel config reloads from local storage; focused active-panel changes now persist in the event task rather than a worker timer. |
+| `settings.bg` | A/C | Settings reload from storage. UI callers coalesce changes before IPC; background storage writes are eager. |
+| `storage.bg` | C | Delayed writes are forced eager on Chromium so no correctness depends on a timer. |
+| `omnibox.bg` | A/B | History/config reload at start; commands build synchronously and input events await readiness. |
+| `permissions.bg` | A | Rebuilt from the permissions API and stored settings before the barrier opens. |
+| `styles.bg` | A | Recomputed for every live window; pending waiter maps are operation-local. |
+| `info.bg` | A | Version data reloads from storage; its nominal delayed store is eager through `storage.bg`. |
+| `ipc.bg` / `ipc` | A | Connections are process-local by design; listeners register before the first await and actions wait for readiness. |
+| `containers.bg` | A | Chromium overlay is a stateless, service-shaped no-op. |
+| `sync.bg` | A | Chromium overlay is a stateless, service-shaped no-op. |
+| `web-req.bg` | A | Chromium overlay is a stateless, service-shaped no-op. |
+| `menu.bg` | B | Plan 15 replaces closure handlers with stable IDs and one top-level cold-start dispatcher. |
+
+Wake-capable tab/window/omnibox/alarm and IPC listeners are registered before the first
+background `await`. Alarm and omnibox callbacks explicitly await the readiness barrier; tab and
+window services queue native events until their live-state queries finish. Chrome owns the
+reserved action command, and no separate background `commands.onCommand` listener remains.
+
+Menu handlers must never live only in a module map or closure. Persistent menu IDs encode the
+operation (`sidebery:open_settings`, `sidebery:create_snapshot`, and
+`sidebery:reopen_cached_win:<index>`), and the Plan 15 dispatcher resolves current storage/state
+after the readiness barrier.

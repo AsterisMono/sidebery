@@ -118,3 +118,16 @@ that window ID. No step depends on a Firefox sidebar URL or `sidebar_action` API
 - Import a legacy Firefox configuration containing `colorScheme: 'ff'`, native context menus,
   title-prefix settings, native tab hiding, tab previews, and window screenshots. Reload the
   setup page and confirm the values are sanitized to Chromium-safe defaults and remain hidden.
+
+## M3 service-worker kill matrix
+
+- Kill the worker, then immediately create, close, move, attach/detach, pin, and activate tabs;
+  confirm the tree contains no duplicates and each window remains isolated.
+- Kill the worker, then invoke action-menu items, a listed keyboard shortcut, and an omnibox
+  command; confirm each cold-start event waits for initialized state.
+- Kill the worker before the next snapshot interval and confirm the persistent alarm wakes it and
+  creates exactly one snapshot after initialization.
+- Kill the worker after a favicon, settings, panel-config, or active-panel update; reopen the
+  sidebar/setup page and confirm persisted data is present (a newest favicon may be regenerated).
+- Repeat the sequence with two open side panels and confirm reconnecting IPC ports route by the
+  correct numeric window ID.
