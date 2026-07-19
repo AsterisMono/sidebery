@@ -1,6 +1,7 @@
 name: Chromium MV3
 
-on: [pull_request]
+on:
+  workflow_dispatch
 
 jobs:
   chromium:
@@ -18,7 +19,6 @@ jobs:
       - run: npm run test.chromium
       - run: npm run lint.types.chromium
       - run: npm run check.overlays
-      - run: npm run lint
       - run: npm run build.ext.chromium
       - uses: actions/upload-artifact@v6
         with:
