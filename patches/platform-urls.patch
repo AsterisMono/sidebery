@@ -203,13 +203,13 @@ diff --git a/src/services/tabs.fg.move.ts b/src/services/tabs.fg.move.ts
 diff --git a/src/sidebar/components/bar.new-tab.vue b/src/sidebar/components/bar.new-tab.vue
 --- a/src/sidebar/components/bar.new-tab.vue
 +++ b/src/sidebar/components/bar.new-tab.vue
-@@ -53,5 +53,6 @@ import * as IPC from 'src/services/ipc'
+@@ -54,5 +54,6 @@ import * as IPC from 'src/services/ipc'
  import * as Windows from 'src/services/windows.fg'
  import * as DnD from 'src/services/drag-and-drop.fg'
  import * as Sidebar from 'src/services/sidebar.fg'
 +import * as PlatformUrls from 'src/platform/urls'
  
- const props = defineProps({
+ interface NewTabBtn {
 @@ -360,7 +361,7 @@ async function activateBtn(tabId?: ID, btn?: NewTabButton) {
        else if (info.url === 'about:blank' && tab.title && D.INITIAL_TITLE_RE.test(tab.title)) {
          info.url = 'https://' + tab.title
@@ -222,7 +222,7 @@ diff --git a/src/sidebar/components/bar.new-tab.vue b/src/sidebar/components/bar
 diff --git a/src/services/windows.bg.ts b/src/services/windows.bg.ts
 --- a/src/services/windows.bg.ts
 +++ b/src/services/windows.bg.ts
-@@ -9,4 +9,5 @@ import * as Sidebar from 'src/services/sidebar.bg'
+@@ -10,4 +10,5 @@ import * as Sidebar from 'src/services/sidebar.bg'
  import * as Utils from 'src/utils'
  import { translate } from 'src/dict'
 +import * as PlatformUrls from 'src/platform/urls'
