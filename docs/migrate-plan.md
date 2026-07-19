@@ -405,16 +405,11 @@ Verified: Chrome's `tabs.create()` accepts neither `discarded: true` nor `title`
 Firefox extensions used by Sidebery to open tabs without loading them):
 - Call sites: `tabs.fg.create.ts:251` (Alt-drag → discarded), `tabs.fg.create.ts:484`
   (bulk paste/open → discarded), snapshot restore paths, `windows.bg.ts:createWithTabs`.
-- **Strategy: reuse Sidebery's own placeholder page** (`/sidebery/url.html`,
-  `PLACEHOLDER_PATH` in `defaults.ts` — it exists exactly for URLs Firefox refuses to open).
-  On Chromium, "create discarded tab with url+title" becomes "create tab at
-  `url.html#<encoded url/title>` (loads instantly, cheap), then `tabs.discard(tabId)`".
-  The placeholder already knows how to navigate to the real URL on activation.
-- Alternative (rejected): create real URL then discard on `onUpdated` — briefly loads the
-  page (network + CPU) and races with tree-building logic.
-- Implement in a `platform/` helper + overlays of the call-site modules; audit that tree
-  restore treats placeholder URLs as the target URL (upstream already has URL-unwrapping
-  helpers for `url.html#...` — verify they're applied in the restore paths).
+- **Strategy:** create the real URL without Firefox-only properties, wait until Chrome reports its
+  first committed URL, then call `tabs.discard(tabId)`. Chrome can resolve `tabs.create()` while
+  both `url` and `pendingUrl` are still empty; discarding in that state creates an unrecoverable
+  unloaded `about:blank` tab. If the URL does not commit promptly, leave the tab loaded.
+- Implement in a `platform/` helper + overlays of the call-site modules.
 
 ### 5.11 URLs, ids, misc
 - `getProfileId()` fix (§3).
@@ -475,8 +470,9 @@ main source of future merge conflicts).
   no per-window title, global vs. per-window state nuances).
 - **Recently-closed list capped at 25** (`sessions.MAX_SESSION_RESULTS`) — the closed-tabs
   sub-panel is shallower than on Firefox.
-- **Unloaded-tab creation is emulated** via the placeholder page + `tabs.discard` (§5.10) —
-  discarded tabs show the placeholder favicon/title mechanics instead of native lazy tabs.
+- **Unloaded-tab creation is emulated** by creating the real URL, waiting for its first commit, and
+  then calling `tabs.discard` (§5.10). Navigation begins before discard, and Chrome cannot apply
+  Firefox's caller-supplied title while the tab is unloaded.
 - **`tabs.onUpdated` filtering happens in-process** (Chrome lacks listener filters) — slight
   overhead on busy windows; negligible in practice.
 - **Window identity across browser restarts** weaker without real `sessions.setWindowValue`.

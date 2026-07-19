@@ -87,7 +87,7 @@ that window ID. No step depends on a Firefox sidebar URL or `sidebar_action` API
 - Restart Chrome with those three windows restored. Confirm tab order, parent/child relations,
   folds, panel assignments, custom titles/colors, pinned state, and discarded state are restored.
   Confirm a cached `about:newtab` matches Chrome's `chrome://newtab/`, and activating a discarded
-  placeholder navigates to its real target.
+  tab loads its preserved real target.
 - After the restart, mutate only one window and inspect local `tabsDataCache`. Confirm entries for
   the other two windows remain present; closing one window removes only its matched cache entry.
 - Enable automatic snapshots with a short supported interval. In the worker console, inspect
@@ -143,10 +143,10 @@ that window ID. No step depends on a Firefox sidebar URL or `sidebar_action` API
 
 ## MV3 injections and unloaded tabs
 
-- Alt-drag a link and bulk-open 20 links as unloaded; placeholders should appear without loading
-  the targets, retain their titles, and navigate to the real URL when activated.
+- Alt-drag a link and bulk-open 20 links as unloaded; the tabs should retain their real target URLs
+  and load them when activated. Check how much navigation begins before the post-commit discard.
 - Restore a snapshot and a bookmarks-backed panel containing unloaded tabs; confirm the same
-  placeholder/discard flow and restored tree relations.
+  create/discard flow and restored tree relations.
 - Open group and URL placeholder pages and confirm their existing module script tags initialize
   them directly with the correct color scheme; no scripting API injection targets extension pages.
 - Force-discard a page with a beforeunload handler and pause media on a normal web tab; confirm the
@@ -161,7 +161,7 @@ that window ID. No step depends on a Firefox sidebar URL or `sidebar_action` API
   trigger `=`, change the manifest keyword to `sb` before release.
 - Drag and drop: test in-panel, cross-window, page-to-panel, tab-to-bookmarks, and external
   `text/uri-list`/`text/plain` drops.
-- Data pages: test bookmarks/history, snapshot create/restore, unloaded placeholders, and group
+- Data pages: test bookmarks/history, snapshot create/restore, unloaded tabs, and group
   pages with light/dark schemes.
 - Settings/locales: open every section, switch among all generated locales (`de`, `en`, `fr`,
   `hu`, `ja`, `pl`, `ru`, `zh_CN`, `zh_TW`), and confirm no dead controls or console errors.
