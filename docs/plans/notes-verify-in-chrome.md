@@ -98,3 +98,23 @@ that window ID. No step depends on a Firefox sidebar URL or `sidebar_action` API
   Disable automatic snapshots and confirm the named alarm is cleared.
 - Enable snapshot auto-export for JSON, Markdown, and both. Confirm downloads succeed from the
   service worker through `data:` URLs without `URL.createObjectURL` errors.
+
+## M2 compatibility surfaces
+
+- Open every setup/settings section and the permissions popup. Confirm there are no dead
+  controls and no errors in either the page console or extension service-worker console.
+- In Keybindings, confirm each shortcut row is read-only. Click **Open Chrome shortcuts** and
+  confirm Chrome 150 or newer opens `chrome://extensions/shortcuts` in a new tab.
+- Confirm Chromium exposes no settings controls for hiding native tabs, Firefox theme colors,
+  window-title prefixes, native context-menu override, tab previews/window screenshots, or
+  bookmark separators.
+- Open bookmark context menus and save a tab tree containing blank separator-shaped entries.
+  Confirm no **Create separator** action appears and no `bookmarks.create` call requests a
+  `separator` type. Confirm ordinary Chrome bookmark and folder nodes render correctly even
+  though Chrome omits Firefox's node `type` property.
+- From the permissions popup, request access to all sites. Confirm the request contains only
+  the `<all_urls>` origin and does not include Firefox-only `webRequest` permissions. Confirm
+  the Firefox-only tab-hiding permission row is absent.
+- Import a legacy Firefox configuration containing `colorScheme: 'ff'`, native context menus,
+  title-prefix settings, native tab hiding, tab previews, and window screenshots. Reload the
+  setup page and confirm the values are sanitized to Chromium-safe defaults and remain hidden.
