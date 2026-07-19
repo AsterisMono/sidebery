@@ -1,0 +1,163 @@
+# Remove Chromium sync panel and sub-panel rendering paths.
+diff --git a/src/sidebar/sidebar.vue b/src/sidebar/sidebar.vue
+--- a/src/sidebar/sidebar.vue
++++ b/src/sidebar/sidebar.vue
+@@ -24,6 +24,5 @@
+   :data-search="Search.reactive.active"
+   :data-sticky-bookmarks="Settings.state.pinOpenedBookmarksFolder"
+   :data-colorized-branches="Settings.state.colorizeTabsBranches"
+-  :data-syncing="Sync.reactive.syncing"
+   :data-new-tab-btns="Settings.state.showNewTabBtns"
+   @dragend="DnD.onDragEnd"
+@@ -91,7 +90,6 @@
+         .BottomBar(
+           v-if="bottomBar && Utils.isTabsPanel(activePanel)"
+           @dragover.prevent.stop=""
+-          :data-drop-target-bookmarks="DnD.reactive.dstType === E.DropType.BookmarksSubPanelBtn && DnD.reactive.dstPanelId === activePanel.id"
+-          :data-drop-target-sync="DnD.reactive.dstType === E.DropType.SyncSubPanelBtn")
++          :data-drop-target-bookmarks="DnD.reactive.dstType === E.DropType.BookmarksSubPanelBtn && DnD.reactive.dstPanelId === activePanel.id")
+           .tool-btn(
+             v-if="Settings.state.subPanelRecentlyClosedBar"
+@@ -107,12 +105,6 @@
+           .tool-btn(
+             v-if="Settings.state.subPanelHistory"
+             @click="Sidebar.openSubPanel(E.SubPanelType.History, activePanel)")
+             svg: use(href="#icon_clock")
+-          .tool-btn.-sync(
+-            v-if="Settings.state.subPanelSync"
+-            @dragleave="onSSPBDragLeave"
+-            @click="Sidebar.openSubPanel(E.SubPanelType.Sync, activePanel)")
+-            .dnd-layer(data-dnd-type="sspb")
+-            svg: use(href="#icon_sync")
+ 
+       SubPanel
+@@ -141,7 +133,6 @@ import * as DnD from 'src/services/drag-and-drop.fg'
+ import * as Bookmarks from 'src/services/bookmarks.fg'
+ import * as Windows from 'src/services/windows.fg'
+ import * as Search from 'src/services/search.fg'
+-import * as Sync from 'src/services/sync.fg'
+ import * as Info from 'src/services/info'
+ import * as Utils from 'src/utils'
+ import * as Popups from 'src/services/popups.fg'
+@@ -153,7 +144,6 @@ import NavigationBar from './components/bar.navigation.vue'
+ import TabsPanel from './components/panel.tabs.vue'
+ import BookmarksPanel from './components/panel.bookmarks.vue'
+ import HistoryPanel from './components/panel.history.vue'
+-import SyncPanel from './components/panel.sync.vue'
+ import SearchBar from './components/bar.search.vue'
+ import BookmarksPopup from 'src/components/popup.bookmarks.vue'
+ import PanelConfigPopup from './components/popup.panel-config.vue'
+@@ -183,8 +173,7 @@ let navBarLeft = navBarVertical && Settings.state.navBarSide === 'left'
+ let navBarRight = navBarVertical && Settings.state.navBarSide === 'right'
+ let bottomBar =
+   Settings.state.subPanelRecentlyClosedBar ||
+   Settings.state.subPanelBookmarks ||
+-  Settings.state.subPanelHistory ||
+-  Settings.state.subPanelSync
++  Settings.state.subPanelHistory
+ let inlinePreview =
+   Settings.state.previewTabs &&
+@@ -201,8 +190,7 @@ function recalcStaticVars() {
+   navBarRight = navBarVertical && Settings.state.navBarSide === 'right'
+   bottomBar =
+     Settings.state.subPanelRecentlyClosedBar ||
+     Settings.state.subPanelBookmarks ||
+-    Settings.state.subPanelHistory ||
+-    Settings.state.subPanelSync
++    Settings.state.subPanelHistory
+   inlinePreview =
+     Settings.state.previewTabs &&
+@@ -248,7 +236,6 @@ function getPanelComponent(panel: Panel): Component | undefined {
+   if (panel.type === E.PanelType.tabs) return TabsPanel
+   if (panel.type === E.PanelType.bookmarks) return BookmarksPanel
+   if (panel.type === E.PanelType.history) return HistoryPanel
+-  if (panel.type === E.PanelType.sync) return SyncPanel
+ }
+ 
+ function onFocusIn(e: FocusEvent): void {
+diff --git a/src/sidebar/components/sub-panel.vue b/src/sidebar/components/sub-panel.vue
+--- a/src/sidebar/components/sub-panel.vue
++++ b/src/sidebar/components/sub-panel.vue
+@@ -13,13 +13,9 @@
+   .sub-panel
+     .header
+-      .header-btn(v-if="isSync" @click="Sync.reload")
+-        svg.icon.-sync(): use(href="#icon_sync")
+       .title {{titles[Sidebar.reactive.subPanelType]}}
+-      .space-filler(v-if="isSync")
+     ClosedTabsSubPanel(v-if="isRecentlyClosedTabs")
+     BookmarksSubPanel(v-else-if="isBookmarks && Sidebar.subPanels.bookmarks" :bookmarksPanel="Sidebar.subPanels.bookmarks")
+     HistoryPanel(v-else-if="isHistory" :isSubPanel="true")
+-    SyncPanel(v-else-if="isSync" :isSubPanel="true")
+ </template>
+ 
+ <script lang="ts" setup>
+@@ -34,9 +30,7 @@ import * as DnD from 'src/services/drag-and-drop.fg'
+ import * as Search from 'src/services/search.fg'
+ import * as Sidebar from 'src/services/sidebar.fg'
+-import * as Sync from 'src/services/sync.fg'
+ import ClosedTabsSubPanel from './sub-panel.closed-tabs.vue'
+ import BookmarksSubPanel from './sub-panel.bookmarks.vue'
+ import HistoryPanel from './panel.history.vue'
+-import SyncPanel from './panel.sync.vue'
+ 
+ const titles: Record<SubPanelType, string> = {
+@@ -48,6 +42,6 @@ const titles: Record<SubPanelType, string> = {
+   [SubPanelType.Bookmarks]: translate('sub_panel.bookmarks_panel.title'),
+   [SubPanelType.History]: translate('sub_panel.history_panel.title'),
+-  [SubPanelType.Sync]: 'Sync',
++  [SubPanelType.Sync]: '',
+ }
+ 
+ const isRecentlyClosedTabs = computed<boolean>(() => {
+@@ -60,6 +54,5 @@ const isBookmarks = computed<boolean>(() => {
+ })
+ const isHistory = computed<boolean>(() => Sidebar.reactive.subPanelType === SubPanelType.History)
+-const isSync = computed<boolean>(() => Sidebar.reactive.subPanelType === SubPanelType.Sync)
+ 
+ function onDrop(): void {
+   DnD.reactive.dstType = DropType.Tabs
+diff --git a/src/sidebar/components/bar.navigation.vue b/src/sidebar/components/bar.navigation.vue
+--- a/src/sidebar/components/bar.navigation.vue
++++ b/src/sidebar/components/bar.navigation.vue
+@@ -96,6 +96,5 @@ import * as SetupPage from 'src/services/setup-page.fg'
+ import * as Popups from 'src/services/popups.fg'
+ import * as Logs from 'src/services/logs'
+-import * as Sync from 'src/services/sync.fg'
+ import NavItemComponent from './nav-item.vue'
+ 
+ const HIDDEN_PANELS_BTN: T.NavBtn = {
+@@ -559,11 +558,6 @@ async function onNavMouseDown(e: MouseEvent, item: T.NavItem) {
+       }
+     }
+ 
+-    // TODO: tmp shit, remove/update later
+-    if (item.type === E.PanelType.sync) {
+-      Sync.openSyncPopup()
+-    }
+-
+     if (item.type === E.ButtonType.create_snapshot) SetupPage.open('snapshots')
+ 
+     if (item.type === E.ButtonType.remute_audio_tabs) {
+@@ -637,9 +631,6 @@ function onNavMouseUp(e: MouseEvent, item: T.NavItem, inHiddenBar?: boolean) {
+         return Sidebar.scrollPanelToEdge()
+       }
+     }
+-    if (item.type === E.PanelType.sync) {
+-      Sync.reload()
+-    }
+   }
+ 
+   // Right
+diff --git a/src/styles/sidebar/sidebar.styl b/src/styles/sidebar/sidebar.styl
+--- a/src/styles/sidebar/sidebar.styl
++++ b/src/styles/sidebar/sidebar.styl
+@@ -9,8 +9,6 @@ vendors = official
+ @import '../scroll-box'
+ @import '../loading-dots'
+ @import '../panel-placeholder'
+-@import '../panel.sync'
+-@import '../panel.sync.entry'
+ @import '../bookmark-node'
+ @import '../popup'
+ @import '../popup.notifications'
