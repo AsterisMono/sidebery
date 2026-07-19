@@ -183,6 +183,40 @@ const tabs = {
     return chrome.tabs.update(tabId, chromiumDetails)
   },
 
+  async duplicate(
+    tabId: ID,
+    details: browser.tabs.DuplOpts = {}
+  ): Promise<browser.tabs.Tab> {
+    let previouslyActiveTabId: ID | undefined
+    if (details.active === false) {
+      const sourceTab = await chrome.tabs.get(tabId)
+      const [activeTab] = await chrome.tabs.query({
+        active: true,
+        windowId: sourceTab.windowId,
+      })
+      previouslyActiveTabId = activeTab?.id
+    }
+
+    // Chrome accepts only the tab id and always creates an active duplicate
+    // immediately after the source tab. Apply Firefox's optional properties
+    // after duplication so upstream callers can keep their existing contract.
+    const duplicatedTab = await chrome.tabs.duplicate(tabId)
+    if (!duplicatedTab) throw new Error(`Chromium did not duplicate tab ${tabId}`)
+
+    if (details.index !== undefined && duplicatedTab.index !== details.index) {
+      await chrome.tabs.move(duplicatedTab.id, { index: details.index })
+    }
+    if (
+      details.active === false &&
+      previouslyActiveTabId !== undefined &&
+      previouslyActiveTabId !== duplicatedTab.id
+    ) {
+      await chrome.tabs.update(previouslyActiveTabId, { active: true })
+    }
+
+    return chrome.tabs.get(duplicatedTab.id)
+  },
+
   async discard(tabIds: ID | ID[]): Promise<void> {
     const ids = Array.isArray(tabIds) ? tabIds : [tabIds]
     await Promise.all(ids.map(tabId => chrome.tabs.discard(tabId)))

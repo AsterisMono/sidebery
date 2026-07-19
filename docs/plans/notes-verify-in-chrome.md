@@ -176,6 +176,9 @@ code contains no DOM/canvas use, and media injection remains file-based.
 - Click **New Tab** repeatedly with the default panel, a URL shortcut, and Settings both with and
   without an existing setup tab. Confirm Chrome reports no unexpected `cookieStoreId`,
   `discarded`, `title`, or `openInReaderMode` create property.
+- Duplicate one active tab, one background tab, and a selected parent/descendant tree. Confirm the
+  copies land at Sidebery's requested positions, only the intended single duplicate becomes active,
+  and the console reports no `tabs.duplicate` signature error.
 - Open every nested in-panel context-menu branch. Moving focus between parent and child entries
   must not dismiss the menu; clicking a final action should execute it and then close normally.
 - Alternate rapidly between the Chrome tab strip and Sidebery in two windows. Exactly one tab per

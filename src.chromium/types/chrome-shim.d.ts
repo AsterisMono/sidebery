@@ -13,7 +13,8 @@ interface ChromiumEvent<T extends (...args: any[]) => any> {
   hasListener(listener: T): boolean
 }
 
-type ChromiumTabsApi = Omit<typeof browser.tabs, 'onUpdated'> & {
+type ChromiumTabsApi = Omit<typeof browser.tabs, 'duplicate' | 'onUpdated'> & {
+  duplicate(tabId: ID): Promise<browser.tabs.Tab | undefined>
   onUpdated: ChromiumEvent<browser.tabs.UpdatedListener>
 }
 type ChromiumWindowsApi = typeof browser.windows

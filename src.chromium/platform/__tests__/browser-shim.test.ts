@@ -52,6 +52,9 @@ let tabsOnActivated: ReturnType<typeof createEvent<(info: { tabId: ID; windowId:
 let tabsOnRemoved: ReturnType<typeof createEvent<browser.tabs.RemovedListener>>
 let tabsCreate: ReturnType<typeof vi.fn>
 let tabsUpdate: ReturnType<typeof vi.fn>
+let tabsDuplicate: ReturnType<typeof vi.fn>
+let tabsGet: ReturnType<typeof vi.fn>
+let tabsMove: ReturnType<typeof vi.fn>
 let tabsDiscard: ReturnType<typeof vi.fn>
 let tabsHighlight: ReturnType<typeof vi.fn>
 let windowsCreate: ReturnType<typeof vi.fn>
@@ -76,6 +79,19 @@ async function loadShim(): Promise<typeof browser> {
   tabsOnRemoved = createEvent<browser.tabs.RemovedListener>()
   tabsCreate = vi.fn().mockImplementation(async details => ({ id: 99, windowId: 7, ...details }))
   tabsUpdate = vi.fn().mockImplementation(async (id, details) => ({ id, windowId: 7, ...details }))
+  tabsDuplicate = vi.fn().mockResolvedValue({ id: 100, windowId: 7, index: 3, active: true })
+  tabsGet = vi.fn().mockImplementation(async id => ({
+    id,
+    windowId: 7,
+    index: id === 100 ? 6 : 2,
+    active: id === 10,
+  }))
+  tabsMove = vi.fn().mockImplementation(async (id, details) => ({
+    id,
+    windowId: 7,
+    index: details.index,
+    active: true,
+  }))
   tabsDiscard = vi.fn().mockImplementation(async id => ({ id, windowId: 7, discarded: true }))
   tabsHighlight = vi.fn().mockResolvedValue({ id: 7 })
   windowsCreate = vi.fn().mockResolvedValue({ id: 43, incognito: false })
@@ -96,6 +112,9 @@ async function loadShim(): Promise<typeof browser> {
       query: vi.fn().mockResolvedValue([{ id: 10, windowId: 7, active: true }]),
       create: tabsCreate,
       update: tabsUpdate,
+      duplicate: tabsDuplicate,
+      get: tabsGet,
+      move: tabsMove,
       discard: tabsDiscard,
       highlight: tabsHighlight,
     },
@@ -269,6 +288,33 @@ describe('tabs creation and activation semantics', () => {
 
     await browser.tabs.discard(11)
     expect(tabsDiscard).toHaveBeenNthCalledWith(3, 11)
+  })
+
+  test('maps Firefox duplicate options to Chromium move and activation calls', async () => {
+    const duplicated = await browser.tabs.duplicate(22, { active: false, index: 6 })
+
+    expect(chrome.tabs.query).toHaveBeenCalledWith({ active: true, windowId: 7 })
+    expect(tabsDuplicate).toHaveBeenCalledWith(22)
+    expect(tabsMove).toHaveBeenCalledWith(100, { index: 6 })
+    expect(tabsUpdate).toHaveBeenCalledWith(10, { active: true })
+    expect(duplicated).toMatchObject({ id: 100, index: 6 })
+  })
+
+  test('does not pass Firefox duplicate options to Chromium', async () => {
+    await browser.tabs.duplicate(22, { active: true })
+
+    expect(tabsDuplicate).toHaveBeenCalledWith(22)
+    expect(tabsDuplicate).toHaveBeenCalledTimes(1)
+    expect(tabsMove).not.toHaveBeenCalled()
+    expect(chrome.tabs.query).not.toHaveBeenCalledWith({ active: true, windowId: 7 })
+  })
+
+  test('rejects when Chromium does not return a duplicated tab', async () => {
+    tabsDuplicate.mockResolvedValueOnce(undefined)
+
+    await expect(browser.tabs.duplicate(22)).rejects.toThrow(
+      'Chromium did not duplicate tab 22'
+    )
   })
 })
 
