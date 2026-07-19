@@ -1,0 +1,55 @@
+# Chrome exposes root 0, bookmarks bar 1, and "other bookmarks" 2.
+# Firefox menu/mobile/unfiled roots have no direct equivalent and intentionally map to 2.
+diff --git a/src/defaults.ts b/src/defaults.ts
+--- a/src/defaults.ts
++++ b/src/defaults.ts
+@@ -164,11 +164,11 @@ export const BOOKMARK_TAB_COLOR: Record<string, string> = {
+ }
+ export const PROXY_OPTS = ['http', 'https', 'socks4', 'socks', 'direct']
+ 
+-export const BKM_ROOT_ID = 'root________'
+-export const BKM_OTHER_ID = 'unfiled_____'
+-export const BKM_MENU_ID = 'menu________'
+-export const BKM_MOBILE_ID = 'mobile______'
+-export const BKM_TLBR_ID = 'toolbar_____'
++export const BKM_ROOT_ID = '0'
++export const BKM_OTHER_ID = '2'
++export const BKM_MENU_ID = '2'
++export const BKM_MOBILE_ID = '2'
++export const BKM_TLBR_ID = '1'
+ 
+ export const PIN_MARK = '📌'
+ 
+diff --git a/src/defaults/panels.ts b/src/defaults/panels.ts
+--- a/src/defaults/panels.ts
++++ b/src/defaults/panels.ts
+@@ -13,7 +13,7 @@ export const BOOKMARKS_PANEL_CONFIG: T.BookmarksPanelConfig = {
+   lockedPanel: false,
+   tempMode: false,
+   skipOnSwitching: false,
+-  rootId: 'root________',
++  rootId: '0',
+   viewMode: 'tree',
+   autoConvert: false,
+   srcPanelConfig: null,
+diff --git a/src/services/menu.fg.options.bookmarks.ts b/src/services/menu.fg.options.bookmarks.ts
+--- a/src/services/menu.fg.options.bookmarks.ts
++++ b/src/services/menu.fg.options.bookmarks.ts
+@@ -259,7 +259,7 @@ export const bookmarksMenuOptions: Record<string, () => MenuOption | MenuOption[
+     }
+     if (Selection.getLength() > 1) option.inactive = true
+     if (node.type === BkmType.Separator) option.inactive = true
+-    if (node.parentId === 'root________') option.inactive = true
++    if (node.parentId === BKM_ROOT_ID) option.inactive = true
+     if (!Settings.state.ctxMenuRenderInact && option.inactive) return
+     return option
+   },
+@@ -272,7 +272,7 @@ export const bookmarksMenuOptions: Record<string, () => MenuOption | MenuOption[
+       icon: 'icon_close',
+       onClick: () => Bookmarks.removeBookmarks(Selection.ids()),
+     }
+-    if (node.parentId === 'root________') option.inactive = true
++    if (node.parentId === BKM_ROOT_ID) option.inactive = true
+     if (!Settings.state.ctxMenuRenderInact && option.inactive) return
+     return option
+   },
