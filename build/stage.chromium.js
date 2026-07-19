@@ -56,8 +56,11 @@ async function removeStaleFiles() {
     const relativePath = path.relative(STAGED_SRC_DIR, stagedFile)
     const upstreamFile = path.join(SRC_DIR, relativePath)
     const overlayFile = path.join(OVERLAY_DIR, relativePath)
-    const exists = await Promise.all([upstreamFile, overlayFile].map(fileExists))
-    if (!exists.some(Boolean)) await fs.promises.rm(stagedFile)
+    const [upstreamExists, overlayExists] = await Promise.all([
+      fileExists(upstreamFile),
+      relativePath === 'README.md' ? false : fileExists(overlayFile),
+    ])
+    if (!upstreamExists && !overlayExists) await fs.promises.rm(stagedFile)
   }
 
   await removeEmptyDirectories(STAGED_SRC_DIR)
@@ -207,11 +210,15 @@ async function main() {
   if (!IS_DEV) return
 
   let timer
+  const pendingRefreshes = new Set()
   const changed = refresh => {
+    pendingRefreshes.add(refresh)
     clearTimeout(timer)
     timer = setTimeout(async () => {
       try {
-        await refresh()
+        const refreshes = [...pendingRefreshes]
+        pendingRefreshes.clear()
+        await Promise.all(refreshes.map(refreshTree => refreshTree()))
         await stage()
       } catch (err) {
         console.error(`Chromium staging failed: ${err.stack ?? err}`)
