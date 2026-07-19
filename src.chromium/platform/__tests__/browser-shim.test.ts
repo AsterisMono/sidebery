@@ -53,6 +53,9 @@ let windowsOnRemoved: ReturnType<typeof createEvent<(windowId: ID) => void>>
 let sessionStorage: ReturnType<typeof createStorageArea>
 let scriptingExecute: ReturnType<typeof vi.fn>
 let searchQuery: ReturnType<typeof vi.fn>
+let sidePanelOpen: ReturnType<typeof vi.fn>
+let sidePanelClose: ReturnType<typeof vi.fn>
+let runtimeGetContexts: ReturnType<typeof vi.fn>
 
 async function loadShim(): Promise<typeof browser> {
   vi.resetModules()
@@ -64,6 +67,9 @@ async function loadShim(): Promise<typeof browser> {
   sessionStorage = createStorageArea()
   scriptingExecute = vi.fn().mockResolvedValue([])
   searchQuery = vi.fn().mockResolvedValue(undefined)
+  sidePanelOpen = vi.fn().mockResolvedValue(undefined)
+  sidePanelClose = vi.fn().mockResolvedValue(undefined)
+  runtimeGetContexts = vi.fn().mockResolvedValue([])
 
   ;(globalThis as any).chrome = {
     tabs: { onUpdated: tabsOnUpdated, onRemoved: tabsOnRemoved },
@@ -71,10 +77,14 @@ async function loadShim(): Promise<typeof browser> {
       WINDOW_ID_CURRENT: -2,
       onRemoved: windowsOnRemoved,
       getCurrent: vi.fn().mockResolvedValue({ id: 42, focused: true, incognito: false }),
+      getLastFocused: vi.fn().mockResolvedValue({ id: 77, focused: true, incognito: false }),
       update: vi.fn(),
       create: vi.fn(),
     },
-    runtime: {},
+    runtime: {
+      getContexts: runtimeGetContexts,
+      getManifest: vi.fn().mockReturnValue({ name: 'Sidebery', action: { default_title: 'Tabs' } }),
+    },
     storage: {
       local: createStorageArea(),
       managed: createStorageArea(),
@@ -82,7 +92,13 @@ async function loadShim(): Promise<typeof browser> {
       sync: createStorageArea(),
     },
     contextMenus: { create: vi.fn() },
-    sidePanel: {},
+    sidePanel: {
+      open: sidePanelOpen,
+      close: sidePanelClose,
+      setPanelBehavior: vi.fn(),
+      onOpened: createEvent(),
+      onClosed: createEvent(),
+    },
     scripting: { executeScript: scriptingExecute },
     search: { query: searchQuery },
     alarms: {},
@@ -233,5 +249,38 @@ describe('search.search', () => {
     await expect(
       browser.search.search({ query: 'bad', tabId: 8, disposition: 'NEW_TAB' }) as any
     ).rejects.toThrow(/cannot combine tabId and disposition/)
+  })
+})
+
+describe('sidebarAction', () => {
+  test('uses numeric window context filters and toggles the target panel', async () => {
+    runtimeGetContexts.mockResolvedValueOnce([{ contextType: 'SIDE_PANEL', windowId: 8 }])
+    await expect(browser.sidebarAction.isOpen({ windowId: 8 })).resolves.toBe(true)
+    expect(runtimeGetContexts).toHaveBeenLastCalledWith({
+      contextTypes: ['SIDE_PANEL'],
+      windowIds: [8],
+    })
+
+    runtimeGetContexts.mockResolvedValueOnce([])
+    await browser.sidebarAction.toggle()
+    expect(sidePanelOpen).toHaveBeenCalledWith({ windowId: 42 })
+
+    runtimeGetContexts.mockResolvedValueOnce([{ contextType: 'SIDE_PANEL', windowId: 42 }])
+    await browser.sidebarAction.toggle()
+    expect(sidePanelClose).toHaveBeenCalledWith({ windowId: 42 })
+  })
+
+  test('falls back to the last focused window and contains open failures', async () => {
+    ;(chrome.windows.getCurrent as ReturnType<typeof vi.fn>).mockResolvedValueOnce({})
+    sidePanelOpen.mockRejectedValueOnce(new Error('user gesture required'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    await expect(browser.sidebarAction.open()).resolves.toBeUndefined()
+    expect(sidePanelOpen).toHaveBeenCalledWith({ windowId: 77 })
+    expect(warn).toHaveBeenCalledWith(
+      'browser.sidebarAction.open() failed on Chromium:',
+      expect.any(Error)
+    )
+    await expect((browser.sidebarAction as any).getTitle()).resolves.toBe('Tabs')
   })
 })

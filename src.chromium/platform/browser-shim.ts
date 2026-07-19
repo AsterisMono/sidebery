@@ -15,10 +15,6 @@ const inertEvent = {
   },
 }
 
-function warnSidebarAction(method: string): void {
-  console.warn(`browser.sidebarAction.${method}() is not yet shimmed for Chromium`)
-}
-
 const nativeTabsOnUpdated = chrome.tabs.onUpdated
 const tabsOnUpdatedWrappers = new Map<
   browser.tabs.UpdatedListener,
@@ -281,23 +277,86 @@ const pageAction = {
   hide: async (_tabId: ID): Promise<void> => {},
 }
 
+type SidebarTarget = { windowId?: ID }
+
+async function resolveSidebarWindowId(details?: SidebarTarget): Promise<number> {
+  const requestedId = details?.windowId
+  if (
+    requestedId !== undefined &&
+    requestedId !== chrome.windows.WINDOW_ID_CURRENT
+  ) {
+    if (typeof requestedId !== 'number' || requestedId < 0) {
+      throw new Error(`Cannot target Chromium side panel window ${String(requestedId)}`)
+    }
+    return requestedId
+  }
+
+  const currentWindow = await chrome.windows.getCurrent({ populate: false })
+  if (typeof currentWindow.id === 'number' && currentWindow.id >= 0) return currentWindow.id
+
+  const lastFocusedWindow = await chrome.windows.getLastFocused({ populate: false })
+  if (typeof lastFocusedWindow.id === 'number' && lastFocusedWindow.id >= 0) {
+    return lastFocusedWindow.id
+  }
+  throw new Error('Cannot resolve a target window for the Chromium side panel')
+}
+
+async function isSidePanelOpen(windowId: number): Promise<boolean> {
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: ['SIDE_PANEL'],
+    windowIds: [windowId],
+  })
+  return contexts.length > 0
+}
+
+function warnSidePanelFailure(method: string, error: unknown): void {
+  console.warn(`browser.sidebarAction.${method}() failed on Chromium:`, error)
+}
+
 const sidebarAction = {
-  // TODO(Plan 8): translate these methods to chrome.sidePanel.
-  async open(): Promise<void> {
-    warnSidebarAction('open')
+  async open(details?: SidebarTarget): Promise<void> {
+    try {
+      const windowId = await resolveSidebarWindowId(details)
+      await chrome.sidePanel.open({ windowId })
+    } catch (error) {
+      // sidePanel.open rejects outside a user gesture. Callers should not lose
+      // their primary operation merely because opening the panel was denied.
+      warnSidePanelFailure('open', error)
+    }
   },
-  async close(): Promise<void> {
-    warnSidebarAction('close')
+  async close(details?: SidebarTarget): Promise<void> {
+    try {
+      const windowId = await resolveSidebarWindowId(details)
+      await chrome.sidePanel.close({ windowId })
+    } catch (error) {
+      warnSidePanelFailure('close', error)
+    }
   },
-  async toggle(): Promise<void> {
-    warnSidebarAction('toggle')
+  async toggle(details?: SidebarTarget): Promise<void> {
+    try {
+      const windowId = await resolveSidebarWindowId(details)
+      if (await isSidePanelOpen(windowId)) await chrome.sidePanel.close({ windowId })
+      else await chrome.sidePanel.open({ windowId })
+    } catch (error) {
+      warnSidePanelFailure('toggle', error)
+    }
   },
-  async isOpen(_details: browser.sidebarAction.IsOpenDetails): Promise<boolean> {
-    warnSidebarAction('isOpen')
-    return false
+  async isOpen(details: browser.sidebarAction.IsOpenDetails = {}): Promise<boolean> {
+    try {
+      return await isSidePanelOpen(await resolveSidebarWindowId(details))
+    } catch (error) {
+      warnSidePanelFailure('isOpen', error)
+      return false
+    }
   },
-  async setTitle(_details: browser.sidebarAction.SetTitleDetails): Promise<void> {
-    warnSidebarAction('setTitle')
+  async setTitle(_details: browser.sidebarAction.SetTitleDetails): Promise<void> {},
+  async getTitle(): Promise<string> {
+    const manifest = chrome.runtime.getManifest() as ReturnType<
+      typeof chrome.runtime.getManifest
+    > & {
+      action?: { default_title?: string }
+    }
+    return manifest.action?.default_title ?? manifest.name
   },
 }
 

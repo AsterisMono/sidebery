@@ -166,3 +166,14 @@ declare namespace browser.sessions {
   function removeTabValue(tabId: ID, key: string): Promise<void>
   function removeWindowValue(windowId: ID, key: string): Promise<void>
 }
+
+declare namespace browser.sidebarAction {
+  interface OpenDetails {
+    windowId?: ID
+  }
+
+  function open(details?: OpenDetails): Promise<void>
+  function close(details?: OpenDetails): Promise<void>
+  function toggle(details?: OpenDetails): Promise<void>
+  function getTitle(): Promise<string>
+}
