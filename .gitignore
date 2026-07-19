@@ -11,6 +11,8 @@ build/*
 !build/*.ts
 !build/*.js
 !build/*.mjs
+!build/__tests__/
+!build/__tests__/*.ts
 /.devenv/
 /.direnv/
 .idea

@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import { spawn } from 'node:child_process'
+import { applyPatchStack, reversePatchStack } from './patch-stack.js'
 
 const ROOT = process.cwd()
 const SRC_DIR = path.join(ROOT, 'src')
@@ -31,10 +31,7 @@ async function listFiles(root) {
 async function copyFile(src, dst, force = false) {
   if (!force) {
     try {
-      const [srcStat, dstStat] = await Promise.all([
-        fs.promises.stat(src),
-        fs.promises.stat(dst),
-      ])
+      const [srcStat, dstStat] = await Promise.all([fs.promises.stat(src), fs.promises.stat(dst)])
       if (dstStat.mtimeMs >= srcStat.mtimeMs) return
     } catch (err) {
       if (err.code !== 'ENOENT') throw err
@@ -88,9 +85,7 @@ async function removeEmptyDirectories(root) {
 }
 
 async function getPatches() {
-  return (await fs.promises.readdir(PATCHES_DIR))
-    .filter(file => file.endsWith('.patch'))
-    .sort()
+  return (await fs.promises.readdir(PATCHES_DIR)).filter(file => file.endsWith('.patch')).sort()
 }
 
 async function getPatchFingerprint(patches) {
@@ -113,29 +108,21 @@ async function readPatchFingerprint() {
   }
 }
 
-async function applyPatches(patches) {
-  for (const patch of patches) {
-    const patchPath = path.join(PATCHES_DIR, patch)
-    if (await gitApply(['--reverse', '--check', '--directory=.staging-chromium', patchPath], true)) {
-      continue
-    }
-    await gitApply(['--directory=.staging-chromium', patchPath])
+async function snapshotStagedFileTimes() {
+  const times = new Map()
+  for (const file of await listFiles(STAGED_SRC_DIR)) {
+    const stat = await fs.promises.stat(file)
+    times.set(path.relative(STAGED_SRC_DIR, file), { atime: stat.atime, mtime: stat.mtime })
   }
+  return times
 }
 
-function gitApply(args, checkOnly = false) {
-  return new Promise((resolve, reject) => {
-    const child = spawn('git', ['apply', ...args], {
-      cwd: ROOT,
-      stdio: checkOnly ? 'ignore' : 'inherit',
-    })
-    child.on('error', reject)
-    child.on('exit', (code, signal) => {
-      if (checkOnly) return resolve(code === 0)
-      if (code === 0) resolve(true)
-      else reject(new Error(`git apply failed${signal ? ` (${signal})` : ` with exit code ${code}`}`))
-    })
-  })
+async function restoreStagedFileTimes(times) {
+  const epoch = new Date(0)
+  for (const file of await listFiles(STAGED_SRC_DIR)) {
+    const previous = times.get(path.relative(STAGED_SRC_DIR, file))
+    await fs.promises.utimes(file, previous?.atime ?? epoch, previous?.mtime ?? epoch)
+  }
 }
 
 async function checkManifestDrift() {
@@ -179,9 +166,28 @@ async function stage() {
   staging = true
   try {
     const patches = await getPatches()
+    const patchPaths = patches.map(patch => path.join(PATCHES_DIR, patch))
     const patchFingerprint = await getPatchFingerprint(patches)
     const previousPatchFingerprint = await readPatchFingerprint()
-    if (patchFingerprint !== previousPatchFingerprint) {
+    let cleanStage = patchFingerprint !== previousPatchFingerprint
+
+    if (!cleanStage) {
+      let reversed = false
+      try {
+        const stagedFileTimes = await snapshotStagedFileTimes()
+        reversed = await reversePatchStack(ROOT, '.staging-chromium', patchPaths)
+        if (reversed) await restoreStagedFileTimes(stagedFileTimes)
+      } catch (err) {
+        if (err?.code !== 'ENOENT') throw err
+      }
+
+      if (!reversed) {
+        console.warn('Chromium staging patch stack is inconsistent; rebuilding it cleanly')
+        cleanStage = true
+      }
+    }
+
+    if (cleanStage) {
       await fs.promises.rm(STAGED_SRC_DIR, { recursive: true, force: true })
     }
 
@@ -192,7 +198,7 @@ async function stage() {
       force: true,
     })
     await removeStaleFiles()
-    await applyPatches(patches)
+    await applyPatchStack(ROOT, '.staging-chromium', patchPaths)
     await checkManifestDrift()
     await fs.promises.writeFile(PATCH_STATE_FILE, `${patchFingerprint}\n`)
     console.log('Chromium staging complete')
