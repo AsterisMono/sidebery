@@ -1,0 +1,452 @@
+{
+  "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw8iaK937EnGI7VWXdcfJGQ3giamIsuzW+8tc0T7hCJ1ujA9xuZNqOgex5QtVqmkzBqhIJf7st+MKd52qtwJjdmACwO7Mh2lh9sqh4GRYdENYhv0aor+x8ygUGqA2EyRurpjPeAzaqp1hiGe/vvmz5m+OvtC1Gk7EXkP+8oSOuoTIMsyefAI6nYPLFJiexk/aCp0yy2eVP6LqzYc5dhc6S9OIohLIisJambDt8KwICRzf/rLdl8c6ajjk08WJjlMagwbUjwIbkw4oR1MX6yQ3SFqLZN7D0iLdpmYM/5IpDCOhQMrVqfQsqTWH4Hl0jvE0ZCNGtmzqHYHPFYmLumwp+wIDAQAB",
+  "author": "mbnuqw",
+  "name": "__MSG_ExtName__",
+  "version": "5.6.1",
+  "default_locale": "en",
+  "description": "__MSG_ExtDesc__",
+  "homepage_url": "https://github.com/mbnuqw/sidebery",
+  "icons": {
+    "16": "assets/logo-16.png",
+    "32": "assets/logo-32.png",
+    "48": "assets/logo-48.png",
+    "128": "assets/logo-128.png"
+  },
+  "options_ui": {
+    "page": "page.setup/setup.html",
+    "open_in_tab": true
+  },
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage",
+    "unlimitedStorage",
+    "sessions",
+    "search",
+    "contextMenus",
+    "sidePanel",
+    "scripting",
+    "alarms"
+  ],
+  "optional_permissions": [
+    "bookmarks",
+    "history",
+    "downloads",
+    "clipboardRead",
+    "clipboardWrite"
+  ],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
+  "side_panel": {
+    "default_path": "sidebar/sidebar.html"
+  },
+  "action": {
+    "default_icon": {
+      "16": "assets/logo-16.png",
+      "32": "assets/logo-32.png",
+      "48": "assets/logo-48.png",
+      "128": "assets/logo-128.png"
+    },
+    "default_title": "__MSG_ActionTitle__"
+  },
+  "background": {
+    "service_worker": "bg/background.js",
+    "type": "module"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+E",
+        "mac": "MacCtrl+E"
+      },
+      "description": "__MSG_KbOpenSidebarPanel__"
+    },
+    "activate": {
+      "description": "__MSG_KbActivate__"
+    },
+    "reset_selection": {
+      "description": "__MSG_KbResetSelection__"
+    },
+    "loop_panels_forwards": {
+      "description": "__MSG_KbLoopPanelsForwards__"
+    },
+    "loop_panels_backwards": {
+      "description": "__MSG_KbLoopPanelsBackwards__"
+    },
+    "next_panel": {
+      "suggested_key": {
+        "default": "Alt+Period"
+      },
+      "description": "__MSG_KbNextPanel__"
+    },
+    "prev_panel": {
+      "suggested_key": {
+        "default": "Alt+Comma"
+      },
+      "description": "__MSG_KbPrevPanel__"
+    },
+    "new_tab_on_panel": {
+      "suggested_key": {
+        "default": "Ctrl+Space",
+        "mac": "MacCtrl+Space"
+      },
+      "description": "__MSG_KbOpenNewTabInCurrPanel__"
+    },
+    "new_tab_in_group": {
+      "description": "__MSG_KbOpenNewTabAfter__"
+    },
+    "new_tab_as_first_child": {
+      "description": "__MSG_KbOpenNewTabAsFirstChild__"
+    },
+    "new_tab_as_last_child": {
+      "description": "__MSG_KbOpenNewTabAsLastChild__"
+    },
+    "rm_tab_on_panel": {
+      "description": "__MSG_KbRm__"
+    },
+    "rm_tabs_above_in_panel": {
+      "description": "__MSG_KbRmTAIP__"
+    },
+    "rm_tabs_below_in_panel": {
+      "description": "__MSG_KbRmTBIP__"
+    },
+    "rm_tabs_other_in_panel": {
+      "description": "__MSG_KbRmTOIP__"
+    },
+    "sel_next_panel": {
+      "description": "__MSG_KbSelNextPanel__"
+    },
+    "sel_prev_panel": {
+      "description": "__MSG_KbSelPrevPanel__"
+    },
+    "select_all": {
+      "description": "__MSG_KbSelectAll__"
+    },
+    "up": {
+      "description": "__MSG_KbUp__"
+    },
+    "down": {
+      "description": "__MSG_KbDown__"
+    },
+    "up_shift": {
+      "description": "__MSG_KbUpShift__"
+    },
+    "down_shift": {
+      "description": "__MSG_KbDownShift__"
+    },
+    "sel_tabs_branch": {
+      "description": "__MSG_KbSelBranch__"
+    },
+    "sel_child_tabs": {
+      "description": "__MSG_KbSelChildTabs__"
+    },
+    "lock_selection": {
+      "description": "__MSG_KbLockSel__"
+    },
+    "menu": {
+      "description": "__MSG_KbMenu__"
+    },
+    "unload_tabs": {
+      "description": "__MSG_KbUnloadTabs__"
+    },
+    "unload_all_tabs_in_panel": {
+      "description": "__MSG_KbUnloadATIP__"
+    },
+    "unload_other_tabs_in_panel": {
+      "description": "__MSG_KbUnloadOTIP__"
+    },
+    "unload_folded_tabs_in_panel": {
+      "description": "__MSG_KbUnloadFTIP__"
+    },
+    "unload_all_tabs_in_inact_panels": {
+      "description": "__MSG_KbUnloadATIIP__"
+    },
+    "fold_branch": {
+      "description": "__MSG_KbFoldBranch__"
+    },
+    "expand_branch": {
+      "description": "__MSG_KbExpandBranch__"
+    },
+    "toggle_branch": {
+      "description": "__MSG_KbToggleBranch__"
+    },
+    "fold_inact_branches": {
+      "description": "__MSG_KbFoldInactBranches__"
+    },
+    "activate_prev_active_tab": {
+      "description": "__MSG_KbActPrevActTab__"
+    },
+    "activate_next_active_tab": {
+      "description": "__MSG_KbActNextActTab__"
+    },
+    "activate_panel_prev_active_tab": {
+      "description": "__MSG_KbActPanelPrevActTab__"
+    },
+    "activate_panel_next_active_tab": {
+      "description": "__MSG_KbActPanelNextActTab__"
+    },
+    "activate_prev_active_tab_c": {
+      "description": "__MSG_KbActPrevActTabC__"
+    },
+    "move_tab_to_active": {
+      "description": "__MSG_KbMoveTabToAct__"
+    },
+    "move_tabs_up": {
+      "description": "__MSG_KbMoveTabsUp__"
+    },
+    "move_tabs_down": {
+      "description": "__MSG_KbMoveTabsDown__"
+    },
+    "tabs_indent": {
+      "description": "__MSG_KbTabsIndent__"
+    },
+    "tabs_outdent": {
+      "description": "__MSG_KbTabsOutdent__"
+    },
+    "create_snapshot": {
+      "description": "__MSG_KbCreateSnapshot__"
+    },
+    "open_snap_viewer": {
+      "description": "__MSG_KbOpenSnapViewer__"
+    },
+    "switch_to_panel_0": {
+      "description": "__MSG_KbSwitchToPanel0__"
+    },
+    "switch_to_panel_1": {
+      "description": "__MSG_KbSwitchToPanel1__"
+    },
+    "switch_to_panel_2": {
+      "description": "__MSG_KbSwitchToPanel2__"
+    },
+    "switch_to_panel_3": {
+      "description": "__MSG_KbSwitchToPanel3__"
+    },
+    "switch_to_panel_4": {
+      "description": "__MSG_KbSwitchToPanel4__"
+    },
+    "switch_to_panel_5": {
+      "description": "__MSG_KbSwitchToPanel5__"
+    },
+    "switch_to_panel_6": {
+      "description": "__MSG_KbSwitchToPanel6__"
+    },
+    "switch_to_panel_7": {
+      "description": "__MSG_KbSwitchToPanel7__"
+    },
+    "switch_to_panel_8": {
+      "description": "__MSG_KbSwitchToPanel8__"
+    },
+    "switch_to_panel_9": {
+      "description": "__MSG_KbSwitchToPanel9__"
+    },
+    "switch_to_prev_panel": {
+      "description": "__MSG_KbSwitchToPrevPanel__"
+    },
+    "move_tabs_to_panel_0": {
+      "description": "__MSG_KbMoveTabsToPanel0__"
+    },
+    "move_tabs_to_panel_1": {
+      "description": "__MSG_KbMoveTabsToPanel1__"
+    },
+    "move_tabs_to_panel_2": {
+      "description": "__MSG_KbMoveTabsToPanel2__"
+    },
+    "move_tabs_to_panel_3": {
+      "description": "__MSG_KbMoveTabsToPanel3__"
+    },
+    "move_tabs_to_panel_4": {
+      "description": "__MSG_KbMoveTabsToPanel4__"
+    },
+    "move_tabs_to_panel_5": {
+      "description": "__MSG_KbMoveTabsToPanel5__"
+    },
+    "move_tabs_to_panel_6": {
+      "description": "__MSG_KbMoveTabsToPanel6__"
+    },
+    "move_tabs_to_panel_7": {
+      "description": "__MSG_KbMoveTabsToPanel7__"
+    },
+    "move_tabs_to_panel_8": {
+      "description": "__MSG_KbMoveTabsToPanel8__"
+    },
+    "move_tabs_to_panel_9": {
+      "description": "__MSG_KbMoveTabsToPanel9__"
+    },
+    "move_tabs_to_panel_start": {
+      "description": "__MSG_KbMoveTabsToPanelStart__"
+    },
+    "move_tabs_to_panel_end": {
+      "description": "__MSG_KbMoveTabsToPanelEnd__"
+    },
+    "search": {
+      "description": "__MSG_KbSearch__"
+    },
+    "switch_to_parent_tab": {
+      "description": "__MSG_KbSwitchToParentTab__"
+    },
+    "switch_to_unpinned_tab_0": {
+      "description": "__MSG_KbSwitchToUnpinnedTab0__"
+    },
+    "switch_to_unpinned_tab_1": {
+      "description": "__MSG_KbSwitchToUnpinnedTab1__"
+    },
+    "switch_to_unpinned_tab_2": {
+      "description": "__MSG_KbSwitchToUnpinnedTab2__"
+    },
+    "switch_to_unpinned_tab_3": {
+      "description": "__MSG_KbSwitchToUnpinnedTab3__"
+    },
+    "switch_to_unpinned_tab_4": {
+      "description": "__MSG_KbSwitchToUnpinnedTab4__"
+    },
+    "switch_to_unpinned_tab_5": {
+      "description": "__MSG_KbSwitchToUnpinnedTab5__"
+    },
+    "switch_to_unpinned_tab_6": {
+      "description": "__MSG_KbSwitchToUnpinnedTab6__"
+    },
+    "switch_to_unpinned_tab_7": {
+      "description": "__MSG_KbSwitchToUnpinnedTab7__"
+    },
+    "switch_to_unpinned_tab_8": {
+      "description": "__MSG_KbSwitchToUnpinnedTab8__"
+    },
+    "switch_to_unpinned_tab_9": {
+      "description": "__MSG_KbSwitchToUnpinnedTab9__"
+    },
+    "switch_to_tab_0": {
+      "description": "__MSG_KbSwitchToTab0__"
+    },
+    "switch_to_tab_1": {
+      "description": "__MSG_KbSwitchToTab1__"
+    },
+    "switch_to_tab_2": {
+      "description": "__MSG_KbSwitchToTab2__"
+    },
+    "switch_to_tab_3": {
+      "description": "__MSG_KbSwitchToTab3__"
+    },
+    "switch_to_tab_4": {
+      "description": "__MSG_KbSwitchToTab4__"
+    },
+    "switch_to_tab_5": {
+      "description": "__MSG_KbSwitchToTab5__"
+    },
+    "switch_to_tab_6": {
+      "description": "__MSG_KbSwitchToTab6__"
+    },
+    "switch_to_tab_7": {
+      "description": "__MSG_KbSwitchToTab7__"
+    },
+    "switch_to_tab_8": {
+      "description": "__MSG_KbSwitchToTab8__"
+    },
+    "switch_to_tab_9": {
+      "description": "__MSG_KbSwitchToTab9__"
+    },
+    "switch_to_last_tab": {
+      "description": "__MSG_KbSwitchToLastTab__"
+    },
+    "switch_to_next_tab": {
+      "description": "__MSG_KbSwitchToNextTab__"
+    },
+    "switch_to_prev_tab": {
+      "description": "__MSG_KbSwitchToPrevTab__"
+    },
+    "scroll_to_active_panel_top": {
+      "description": "__MSG_KbScrollToActivePanelTop__"
+    },
+    "scroll_to_active_panel_bottom": {
+      "description": "__MSG_KbScrollToActivePanelBottom__"
+    },
+    "duplicate_tabs": {
+      "description": "__MSG_KbDuplicateTabs__"
+    },
+    "pin_tabs": {
+      "description": "__MSG_KbPinTabs__"
+    },
+    "hide_act_panel": {
+      "description": "__MSG_KbHideActPanel__"
+    },
+    "group_tabs": {
+      "description": "__MSG_KbGroupTabs__"
+    },
+    "group_tabs_act": {
+      "description": "__MSG_KbGroupTabsAct__"
+    },
+    "flatten_tabs": {
+      "description": "__MSG_KbFlattenTabs__"
+    },
+    "edit_title": {
+      "description": "__MSG_KbEditTitle__"
+    },
+    "sort_tabs_by_title_asc": {
+      "description": "__MSG_KbSortTabsByTitleAsc__"
+    },
+    "sort_tabs_by_title_des": {
+      "description": "__MSG_KbSortTabsByTitleDes__"
+    },
+    "sort_tabs_by_url_asc": {
+      "description": "__MSG_KbSortTabsByTrlAsc__"
+    },
+    "sort_tabs_by_url_des": {
+      "description": "__MSG_KbSortTabsByTrlDes__"
+    },
+    "sort_tabs_by_time_asc": {
+      "description": "__MSG_KbSortTabsByTimeAsc__"
+    },
+    "sort_tabs_by_time_des": {
+      "description": "__MSG_KbSortTabsByTimeDes__"
+    },
+    "sort_panel_tabs_by_title_asc": {
+      "description": "__MSG_KbSortPanelTabsByTitleAsc__"
+    },
+    "sort_panel_tabs_by_title_des": {
+      "description": "__MSG_KbSortPanelTabsByTitleDes__"
+    },
+    "sort_panel_tabs_by_url_asc": {
+      "description": "__MSG_KbSortPanelTabsByTrlAsc__"
+    },
+    "sort_panel_tabs_by_url_des": {
+      "description": "__MSG_KbSortPanelTabsByTrlDes__"
+    },
+    "sort_panel_tabs_by_time_asc": {
+      "description": "__MSG_KbSortPanelTabsByTimeAsc__"
+    },
+    "sort_panel_tabs_by_time_des": {
+      "description": "__MSG_KbSortPanelTabsByTimeDes__"
+    },
+    "open_panel_config": {
+      "description": "__MSG_KbOpenPanelConfig__"
+    },
+    "copy_title": {
+      "description": "__MSG_KbCopyTitle__"
+    },
+    "copy_url": {
+      "description": "__MSG_KbCopyUrl__"
+    },
+    "copy_tmplt_0": {
+      "description": "__MSG_KbCopyByTmplt0__"
+    },
+    "copy_tmplt_1": {
+      "description": "__MSG_KbCopyByTmplt1__"
+    },
+    "copy_tmplt_2": {
+      "description": "__MSG_KbCopyByTmplt2__"
+    },
+    "copy_tmplt_3": {
+      "description": "__MSG_KbCopyByTmplt3__"
+    },
+    "copy_tmplt_4": {
+      "description": "__MSG_KbCopyByTmplt4__"
+    },
+    "open_bookmarks_sub_panel": {
+      "description": "__MSG_KbOpenBookmarksSubPanel__"
+    }
+  },
+  "omnibox": {
+    "keyword": "="
+  }
+}
