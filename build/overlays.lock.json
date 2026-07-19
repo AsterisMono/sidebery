@@ -40,6 +40,7 @@
   "src/services/favicons.ts": "0dbad94eade800e6db9ca4e09ffb18eedd39def8",
   "src/services/google.drive.ts": "0673cee548c064eb6e777f52142e9ba8ee2c6059",
   "src/services/google.ts": "2d5715a412c078213b8afa956841b241b28ede22",
+  "src/services/history.fg.ts": "dc3279d478cf183b46c1c89300fcee90018dc9ba",
   "src/services/info.ts": "e5450a425343f466a67e4fcf3e774890b363118e",
   "src/services/ipc.ts": "7c7ecdfeffb181bd0ce144146f170da9714decbd",
   "src/services/ippc.addon.ts": "e1ff85471b193b8c2c3dd239697fe42d8063c3ac",

@@ -60,10 +60,14 @@ let searchQuery: ReturnType<typeof vi.fn>
 let sidePanelOpen: ReturnType<typeof vi.fn>
 let sidePanelClose: ReturnType<typeof vi.fn>
 let runtimeGetContexts: ReturnType<typeof vi.fn>
+let permissionsOnAdded: ReturnType<
+  typeof createEvent<browser.permissions.PermissionsChangeListener>
+>
 
 async function loadShim(): Promise<typeof browser> {
   vi.resetModules()
   delete (globalThis as any).browser
+  delete (globalThis as any).__sideberyBrowser
 
   tabsOnUpdated = createEvent<browser.tabs.UpdatedListener>()
   tabsOnActivated = createEvent<(info: { tabId: ID; windowId: ID }) => void>()
@@ -78,6 +82,7 @@ async function loadShim(): Promise<typeof browser> {
   sidePanelOpen = vi.fn().mockResolvedValue(undefined)
   sidePanelClose = vi.fn().mockResolvedValue(undefined)
   runtimeGetContexts = vi.fn().mockResolvedValue([])
+  permissionsOnAdded = createEvent<browser.permissions.PermissionsChangeListener>()
 
   ;(globalThis as any).chrome = {
     tabs: {
@@ -128,7 +133,10 @@ async function loadShim(): Promise<typeof browser> {
     bookmarks: {},
     history: {},
     downloads: {},
-    permissions: {},
+    permissions: {
+      contains: vi.fn().mockResolvedValue(false),
+      onAdded: permissionsOnAdded,
+    },
     omnibox: {},
     i18n: {},
     extension: { inIncognitoContext: false },
@@ -136,11 +144,35 @@ async function loadShim(): Promise<typeof browser> {
   }
 
   await import('../browser-shim')
-  return (globalThis as any).browser
+  const browserShim = (globalThis as any).__sideberyBrowser
+  // Unit tests are not built with the production identifier rewrite. Alias the
+  // private object only inside this mocked context so existing assertions call
+  // the same adapter object as Chromium bundles do.
+  ;(globalThis as any).browser = browserShim
+  return browserShim
 }
 
 beforeEach(async () => {
   await loadShim()
+})
+
+test('keeps adapters isolated from Chromium native browser binding updates', () => {
+  const shim = (globalThis as any).__sideberyBrowser
+  const testAlias = (globalThis as any).browser
+
+  try {
+    ;(globalThis as any).browser = {
+      tabs: chrome.tabs,
+      sessions: chrome.sessions,
+      history: chrome.history,
+    }
+
+    expect(typeof shim.tabs.moveInSuccession).toBe('function')
+    expect(typeof shim.sessions.setTabValue).toBe('function')
+    expect(typeof shim.history.onTitleChanged.addListener).toBe('function')
+  } finally {
+    ;(globalThis as any).browser = testAlias
+  }
 })
 
 describe('tabs.onUpdated', () => {
@@ -195,12 +227,16 @@ describe('tabs creation and activation semantics', () => {
     await browser.tabs.update(99, { active: true, loadReplace: true, successorTabId: 10 })
     expect(tabsUpdate).toHaveBeenCalledWith(99, { active: true })
 
+    await browser.tabs.update({ url: 'https://example.com/from-history' })
+    expect(tabsUpdate).toHaveBeenLastCalledWith({ url: 'https://example.com/from-history' })
+
     await browser.tabs.update(99, { openerTabId: 99 })
     expect(tabsUpdate).toHaveBeenLastCalledWith(99, {})
 
     await browser.tabs.highlight({ windowId: 7, populate: false, tabs: [1, 2] })
     expect(tabsHighlight).toHaveBeenCalledWith({ windowId: 7, tabs: [1, 2] })
     await expect(browser.tabs.warmup(99)).resolves.toBeUndefined()
+    await expect(browser.tabs.moveInSuccession([99], 10)).resolves.toBeUndefined()
   })
 
   test('adds Firefox previousTabId to Chrome activation events', async () => {
@@ -219,9 +255,115 @@ describe('tabs creation and activation semantics', () => {
   })
 })
 
-test('provides an inert Firefox history title event', () => {
-  const listener = vi.fn()
-  expect(() => browser.history.onTitleChanged.addListener(listener)).not.toThrow()
+describe('optional history permission', () => {
+  test('resolves methods and events granted after shim initialization', async () => {
+    const historySearch = vi.fn().mockResolvedValue([{ id: 'visit' }])
+    const historyGetVisits = vi.fn().mockResolvedValue([{ id: 'visit-details' }])
+    const historyDeleteRange = vi.fn().mockResolvedValue(undefined)
+    const historyDeleteUrl = vi.fn().mockResolvedValue(undefined)
+    const historyOnVisited = createEvent<browser.history.VisitedListener>()
+    const historyOnVisitRemoved = createEvent<browser.history.VisitRemovedListener>()
+    const visitedListener = vi.fn()
+
+    expect(typeof browser.history.search).toBe('function')
+    ;(chrome as any).history = {
+      search: historySearch,
+      getVisits: historyGetVisits,
+      deleteRange: historyDeleteRange,
+      deleteUrl: historyDeleteUrl,
+      onVisited: historyOnVisited,
+      onVisitRemoved: historyOnVisitRemoved,
+    }
+
+    await expect(browser.history.search({ text: '' })).resolves.toEqual([{ id: 'visit' }])
+    await expect(browser.history.getVisits({ url: 'https://example.com' })).resolves.toEqual([
+      { id: 'visit-details' },
+    ])
+    await browser.history.deleteRange({ startTime: 1, endTime: 2 })
+    await browser.history.deleteUrl({ url: 'https://example.com' })
+    browser.history.onVisited.addListener(visitedListener)
+    historyOnVisited.emit({ id: 'visit' })
+
+    expect(historySearch).toHaveBeenCalledWith({ text: '' })
+    expect(historyGetVisits).toHaveBeenCalledWith({ url: 'https://example.com' })
+    expect(historyDeleteRange).toHaveBeenCalledWith({ startTime: 1, endTime: 2 })
+    expect(historyDeleteUrl).toHaveBeenCalledWith({ url: 'https://example.com' })
+    expect(visitedListener).toHaveBeenCalledWith({ id: 'visit' })
+
+    // Removing the permission hides the current namespace, but the shim still
+    // unregisters from the native event object used when the listener was added.
+    ;(chrome as any).history = {}
+    browser.history.onVisited.removeListener(visitedListener)
+    expect(historyOnVisited.hasListener(visitedListener)).toBe(false)
+  })
+
+  test('keeps the Firefox-only title event inert and reports missing access', async () => {
+    const listener = vi.fn()
+    expect(() => browser.history.onTitleChanged.addListener(listener)).not.toThrow()
+    await expect(browser.history.search({ text: '' })).rejects.toThrow(/history permission/)
+  })
+
+  test('waits for Chromium to refresh bindings after permission grant', async () => {
+    const historySearch = vi.fn().mockResolvedValue([{ id: 'delayed-visit' }])
+    ;(chrome.permissions.contains as ReturnType<typeof vi.fn>).mockResolvedValue(true)
+
+    const result = browser.history.search({ text: '' })
+    setTimeout(() => {
+      ;(chrome as any).history = { search: historySearch }
+    }, 5)
+
+    await expect(result).resolves.toEqual([{ id: 'delayed-visit' }])
+    expect(historySearch).toHaveBeenCalledWith({ text: '' })
+  })
+
+  test('does not search during the permission-added event turn', async () => {
+    const historySearch = vi.fn().mockResolvedValue([{ id: 'settled-visit' }])
+    ;(chrome as any).history = { search: historySearch }
+
+    permissionsOnAdded.emit({ permissions: ['history'] })
+    const result = browser.history.search({ text: '' })
+
+    expect(historySearch).not.toHaveBeenCalled()
+    await expect(result).resolves.toEqual([{ id: 'settled-visit' }])
+    expect(historySearch).toHaveBeenCalledWith({ text: '' })
+  })
+})
+
+describe('other optional API permissions', () => {
+  test('late-binds bookmarks and downloads after first grant', async () => {
+    const bookmarksGetTree = vi.fn().mockResolvedValue([{ id: '0', title: '', children: [] }])
+    const bookmarksCreate = vi.fn().mockResolvedValue({ id: '1', title: 'Example' })
+    const bookmarksOnCreated = createEvent<browser.bookmarks.CreateListener>()
+    const downloadsDownload = vi.fn().mockResolvedValue(12)
+    const bookmarkListener = vi.fn()
+
+    ;(chrome as any).bookmarks = {
+      getTree: bookmarksGetTree,
+      create: bookmarksCreate,
+      onCreated: bookmarksOnCreated,
+    }
+    ;(chrome as any).downloads = { download: downloadsDownload }
+
+    permissionsOnAdded.emit({ permissions: ['bookmarks', 'downloads'] })
+    const tree = browser.bookmarks.getTree()
+    const created = browser.bookmarks.create({ title: 'Example', type: 'bookmark' })
+    const downloaded = browser.downloads.download({ url: 'data:text/plain,Sidebery' })
+
+    expect(bookmarksGetTree).not.toHaveBeenCalled()
+    expect(downloadsDownload).not.toHaveBeenCalled()
+    await expect(tree).resolves.toEqual([{ id: '0', title: '', children: [] }])
+    await expect(created).resolves.toEqual({ id: '1', title: 'Example' })
+    await expect(downloaded).resolves.toBe(12)
+    expect(bookmarksCreate).toHaveBeenCalledWith({ title: 'Example' })
+
+    browser.bookmarks.onCreated.addListener(bookmarkListener)
+    bookmarksOnCreated.emit('1', { id: '1', title: 'Example' })
+    expect(bookmarkListener).toHaveBeenCalledWith('1', { id: '1', title: 'Example' })
+
+    await expect(
+      browser.bookmarks.create({ title: 'Separator', type: 'separator' })
+    ).rejects.toThrow(/does not support bookmark separators/)
+  })
 })
 
 describe('sessions values', () => {

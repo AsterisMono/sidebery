@@ -52,7 +52,14 @@ function injectBrowserShim(): Plugin {
 const base = defineConfig({
   appType: 'custom',
   mode: 'production',
-  define: { IS_CHROMIUM: true },
+  // Chrome 150 exposes its own `browser` namespace and refreshes its lazy API
+  // accessors when optional permissions change. Keep Sidebery's Firefox-compat
+  // adapter on a private global so those refreshes cannot replace our tabs,
+  // sessions, and event adapters.
+  define: {
+    IS_CHROMIUM: true,
+    browser: 'globalThis.__sideberyBrowser',
+  },
   resolve: { alias: { src: SRC_PATH } },
   clearScreen: false,
   cacheDir: process.env.SIDEBERY_CHROMIUM_CACHE_DIR || 'node_modules/.vite-chromium',

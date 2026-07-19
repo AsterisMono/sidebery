@@ -1,0 +1,26 @@
+# The Chromium browser shim always exposes optional API adapters, so Firefox's
+# namespace-presence checks are insufficient. Gate first-load on actual permissions.
+diff --git a/src/services/bookmarks.fg.ts b/src/services/bookmarks.fg.ts
+--- a/src/services/bookmarks.fg.ts
++++ b/src/services/bookmarks.fg.ts
+@@ -360,7 +360,7 @@ function finishLoading() {
+ }
+
+ export async function load(): Promise<void> {
+-  if (!browser.bookmarks) return
++  if (!Permissions.reactive.bookmarks) return
+
+   // Check if the process is already started
+   if (loading) return new Promise(ok => onLoaded.push(ok))
+diff --git a/src/services/history.fg.ts b/src/services/history.fg.ts
+--- a/src/services/history.fg.ts
++++ b/src/services/history.fg.ts
+@@ -117,7 +117,7 @@ export function createVisit(
+ }
+
+ export async function load(): Promise<void> {
+-  if (!browser.history) return
++  if (!Permissions.reactive.history) return
+
+   ready = false
+   reactive.loading = true
