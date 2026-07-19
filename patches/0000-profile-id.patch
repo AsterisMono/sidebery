@@ -1,0 +1,14 @@
+# Use the extension URL hostname as the profile identifier on Chromium.
+diff --git a/src/services/info.ts b/src/services/info.ts
+index e5450a42..77b7cb1a 100644
+--- a/src/services/info.ts
++++ b/src/services/info.ts
+@@ -100,7 +100,7 @@ export function getMajVer(verStr?: string): number | undefined {
+ }
+
+ export function getProfileId() {
+-  return browser.runtime.getURL('').slice(16, 52)
++  return new URL(browser.runtime.getURL('')).hostname
+ }
+
+ export function isFreshInstall(): boolean {

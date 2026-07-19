@@ -170,7 +170,7 @@ Platform constants in `src.chromium/platform/env.ts`:
 
 - `getProfileId()` — upstream `info.ts` slices `runtime.getURL('')` at `[16, 52]`
   (`moz-extension://` prefix). Chromium: `chrome-extension://` (19 chars) + 32-char id.
-  Overlay `services/info.ts` with a scheme-agnostic implementation. With the pinned
+  Patch `services/info.ts` with a scheme-agnostic implementation. With the pinned
   `manifest.key`, the profile id is stable across installs (decision #4) — note this changes
   "profile identity" semantics vs. Firefox (per-profile UUID vs. per-extension constant);
   only snapshots metadata is affected since sync is gone.

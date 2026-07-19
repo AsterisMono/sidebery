@@ -40,7 +40,7 @@ Parallelizable groups (disjoint write sets, after prerequisites):
 - `docs/plans/notes-verify-in-chrome.md` — accumulating manual-verification checklist
   (created in Plan 8, appended by 12–17, consolidated in 17). Items in it require a
   human running Chrome ≥ 150 — sub-agents must record, not skip, such items.
-- `patches/0018-settings-tabs-vue.patch` — shared by Plans 11 and 12 (single patch file,
+- `patches/0021-settings-tabs-vue.patch` — shared by Plans 11 and 12 (single patch file,
   two hunks).
 - `build/overlays.lock.json` — overlay baseline (Plan 18).
 

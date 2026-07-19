@@ -5,5 +5,9 @@ Files named `*.patch` in this directory are `git apply`-style diffs applied to
 filenames use the `0000-description.patch` format; the numeric prefix defines their
 application order.
 
-Patches are a last resort for small changes that cannot reasonably be expressed as an
-overlay or build-time transform.
+For changes to existing upstream files, first try a narrow, purpose-focused patch.
+Chromium-only additions should remain regular source files under `src.chromium/`.
+
+Use a full shadowing file only as a last resort when a patch cannot reasonably express the
+divergence. Shadowing masks the complete upstream file and increases drift-review, staging,
+and long-term maintenance complexity.

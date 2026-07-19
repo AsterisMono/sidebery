@@ -1,0 +1,58 @@
+# Keep Chromium sync code inert and prevent runtime imports of disabled sync modules.
+diff --git a/src/services/sync.ts b/src/services/sync.ts
+index a512262d..b118e221 100644
+--- a/src/services/sync.ts
++++ b/src/services/sync.ts
+@@ -1,6 +1,5 @@
+-import { MenuConfs, SettingsState, CustomStyles } from 'src/types'
++import type { CustomStyles, MenuConfs, SettingsState } from 'src/types'
+ import * as Utils from 'src/utils'
+-import * as Logs from 'src/services/logs'
+
+ export const enum SyncedEntryType {
+   Settings = 1,
+@@ -54,10 +53,8 @@ export interface SyncedEntry {
+   size?: string
+   sameProfile?: boolean
+   loading?: boolean
+-
+   tabs?: EntryTab[]
+   containers?: Record<string, EntryContainer>
+-
+   gdFileId?: string
+   ffKey?: string
+ }
+@@ -71,21 +68,6 @@ export interface SyncReactiveState {
+ export const QUEUE = new Utils.AsyncQueue()
+ export const AUTO_UNLOAD_TIMEOUT_BG = 35_000
+
+-export function getSyncedType(syncedTypeString: string): SyncedEntryType | null {
+-  switch (syncedTypeString) {
+-    case 'settings':
+-      return SyncedEntryType.Settings
+-    case 'ctxMenu':
+-    case 'ctx-menu':
+-      return SyncedEntryType.CtxMenu
+-    case 'styles':
+-      return SyncedEntryType.Styles
+-    case 'kb':
+-    case 'keybindings':
+-      return SyncedEntryType.Keybindings
+-    case 'tabs':
+-      return SyncedEntryType.Tabs
+-    default:
+-      return null
+-  }
++export function getSyncedType(_syncedTypeString: string): SyncedEntryType | null {
++  return null
+ }
+diff --git a/src/services/sync.google.ts b/src/services/sync.google.ts
+index e084db47..b8867175 100644
+--- a/src/services/sync.google.ts
++++ b/src/services/sync.google.ts
+@@ -1,4 +1,4 @@
+-import { TabReopenRuleConfig } from 'src/types'
++import type { TabReopenRuleConfig } from 'src/types'
+
+ export interface ProfileInfo {
+   name: string

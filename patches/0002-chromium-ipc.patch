@@ -1,0 +1,90 @@
+# Route Chromium extension pages through default-context IPC and wake the MV3 service worker.
+diff --git a/src/services/ippc.addon.ts b/src/services/ippc.addon.ts
+index e1ff8547..77c9db00 100644
+--- a/src/services/ippc.addon.ts
++++ b/src/services/ippc.addon.ts
+@@ -1,11 +1,9 @@
+ import type * as T from 'src/types'
+-import * as D from 'src/defaults'
+ import { InstanceType } from 'src/enums'
+ import { uid } from 'src/utils'
+ import * as Logs from 'src/services/logs'
+ import * as IPC from 'src/services/ipc'
+ import * as IPPC from 'src/services/ippc'
+-import { sendHashMsg } from 'src/services/ippc.addon.hm'
+ import { Channels, sendBCMsg } from 'src/services/ippc.addon.bc'
+
+ export * from 'src/services/ippc.addon.bc'
+@@ -91,22 +89,16 @@ async function answer<T extends InstanceType, A extends T.ActionsKeys<T>>(
+   msg: T.Message<T, A>,
+   tab: TabCtx
+ ) {
+-  if (tab.cookieStoreId === D.DEFAULT_CONTAINER_ID) {
+-    await sendBCMsg(msg, tab, true)
+-  } else {
+-    await sendHashMsg(msg, tab)
+-  }
++  // Chromium has no contextual identities, so every extension page shares the
++  // default context even though native Tab objects omit Firefox's cookieStoreId.
++  await sendBCMsg(msg, tab, true)
+ }
+
+ export async function send<T extends InstanceType, A extends T.ActionsKeys<T>>(
+   msg: T.Message<T, A>,
+   tab: TabCtx
+ ) {
+-  if (tab.cookieStoreId === D.DEFAULT_CONTAINER_ID) {
+-    await sendBCMsg(msg, tab)
+-  } else {
+-    await sendHashMsg(msg, tab)
+-  }
++  await sendBCMsg(msg, tab)
+ }
+
+ export async function callGroupPage<T extends InstanceType.group, A extends T.ActionsKeys<T>>(
+diff --git a/src/services/ippc.page.ts b/src/services/ippc.page.ts
+index ec84b14e..bee145b6 100644
+--- a/src/services/ippc.page.ts
++++ b/src/services/ippc.page.ts
+@@ -3,6 +3,7 @@ import { InstanceType } from 'src/enums'
+ import * as IPPC from 'src/services/ippc'
+ import { initBC, sendBCMsg } from 'src/services/ippc.page.bc'
+ import { initHM, sendHashMsg } from 'src/services/ippc.page.hm'
++import { createBackgroundPing } from 'src/platform/background-ready'
+
+ export { sendBCMsg, hashSuffix } from 'src/services/ippc.page.bc'
+
+@@ -39,7 +40,7 @@ export async function init<R, I extends InstanceType>(
+   localType = type
+   actions = a
+   setHash = hashSetter
+-  inDefaultContainer = isInDefaultContainer()
++  inDefaultContainer = await isInDefaultContainer()
+
+   if (inDefaultContainer) {
+     initBC()
+@@ -50,8 +51,22 @@ export async function init<R, I extends InstanceType>(
+   return req({ dstType: InstanceType.bg, action: 'init' })
+ }
+
+-export function isInDefaultContainer() {
+-  return !!localStorage.getItem('sdbr')
++export async function isInDefaultContainer(): Promise<boolean> {
++  let timeout: number | undefined
++  try {
++    await Promise.race([
++      browser.runtime.sendMessage(createBackgroundPing()),
++      new Promise<void>(resolve => {
++        timeout = setTimeout(resolve, 5_000)
++      }),
++    ])
++  } catch {
++    // The ping is only a wake/readiness hint. Chromium has no non-default
++    // container context, so a failed worker start must not select hash IPC.
++  } finally {
++    clearTimeout(timeout)
++  }
++  return true
+ }
+
+ export function onMsg<T extends InstanceType, A extends keyof T.Actions>(msg: T.Message<T, A>) {
