@@ -90,9 +90,15 @@ async function main(): Promise<void> {
   Settings.setupSettingsChangeListener()
   Sidebar.setupListeners()
   Permissions.setupListeners()
-  initToolbarButton()
   Omnibox.setupListeners()
   setupSidebarConnectionHandlers()
+
+  // Chrome owns primary-action clicks when this behavior is enabled. Do not
+  // also register the Firefox browserAction.onClicked toggle: that would race
+  // the browser's native open/close behavior and could double-toggle the panel.
+  const panelBehaviorReady = chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: true })
+    .catch(error => Logs.err('Cannot configure Chromium action side panel behavior', error))
 
   browser.runtime.onUpdateAvailable.addListener(details => {
     const currentVersion = Info.versionToInt(browser.runtime.getManifest().version)
@@ -101,7 +107,7 @@ async function main(): Promise<void> {
   })
 
   // Container initialization requires contextualIdentities and is replaced in Plan 9.
-  await Promise.all([Windows.load(), Settings.load(), Info.loadVersionInfo()])
+  await Promise.all([panelBehaviorReady, Windows.load(), Settings.load(), Info.loadVersionInfo()])
 
   Info.saveVersion()
 
@@ -163,12 +169,5 @@ function setupSidebarConnectionHandlers(): void {
         }
       })
       .catch(() => undefined)
-  })
-}
-
-function initToolbarButton(): void {
-  browser.browserAction.onClicked.addListener((_, info): void => {
-    if (info && info.button === 1) browser.runtime.openOptionsPage()
-    else browser.sidebarAction.toggle()
   })
 }
