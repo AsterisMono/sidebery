@@ -4,6 +4,8 @@ dist
 node_modules
 coverage
 addon
+.staging-chromium/
+addon-chromium/
 build/*
 !build/*.ts
 !build/*.js

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "node build/all.vite.js --dev",
+    "stage.chromium": "node build/stage.chromium.js",
     "dev.styles": "node build/styles.js --dev",
     "dev.html": "node build/html.js --dev",
     "dev.copy": "node build/copy.js --dev",
