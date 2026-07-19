@@ -48,7 +48,10 @@ function createStorageArea() {
 }
 
 let tabsOnUpdated: ReturnType<typeof createEvent<browser.tabs.UpdatedListener>>
+let tabsOnActivated: ReturnType<typeof createEvent<(info: { tabId: ID; windowId: ID }) => void>>
 let tabsOnRemoved: ReturnType<typeof createEvent<browser.tabs.RemovedListener>>
+let tabsCreate: ReturnType<typeof vi.fn>
+let tabsUpdate: ReturnType<typeof vi.fn>
 let windowsOnRemoved: ReturnType<typeof createEvent<(windowId: ID) => void>>
 let sessionStorage: ReturnType<typeof createStorageArea>
 let scriptingExecute: ReturnType<typeof vi.fn>
@@ -62,7 +65,10 @@ async function loadShim(): Promise<typeof browser> {
   delete (globalThis as any).browser
 
   tabsOnUpdated = createEvent<browser.tabs.UpdatedListener>()
+  tabsOnActivated = createEvent<(info: { tabId: ID; windowId: ID }) => void>()
   tabsOnRemoved = createEvent<browser.tabs.RemovedListener>()
+  tabsCreate = vi.fn().mockImplementation(async details => ({ id: 99, windowId: 7, ...details }))
+  tabsUpdate = vi.fn().mockImplementation(async (id, details) => ({ id, windowId: 7, ...details }))
   windowsOnRemoved = createEvent<(windowId: ID) => void>()
   sessionStorage = createStorageArea()
   scriptingExecute = vi.fn().mockResolvedValue([])
@@ -72,7 +78,14 @@ async function loadShim(): Promise<typeof browser> {
   runtimeGetContexts = vi.fn().mockResolvedValue([])
 
   ;(globalThis as any).chrome = {
-    tabs: { onUpdated: tabsOnUpdated, onRemoved: tabsOnRemoved },
+    tabs: {
+      onUpdated: tabsOnUpdated,
+      onActivated: tabsOnActivated,
+      onRemoved: tabsOnRemoved,
+      query: vi.fn().mockResolvedValue([{ id: 10, windowId: 7, active: true }]),
+      create: tabsCreate,
+      update: tabsUpdate,
+    },
     windows: {
       WINDOW_ID_CURRENT: -2,
       onRemoved: windowsOnRemoved,
@@ -163,6 +176,32 @@ describe('tabs.onUpdated', () => {
 
     expect(listener).toHaveBeenCalledOnce()
     expect(tabsOnUpdated.listeners.size).toBe(1)
+  })
+})
+
+describe('tabs creation and activation semantics', () => {
+  test('strips Firefox-only create and update properties', async () => {
+    await browser.tabs.create({
+      url: 'https://example.com',
+      cookieStoreId: 'firefox-default',
+      discarded: false,
+      title: 'Example',
+    })
+    expect(tabsCreate).toHaveBeenCalledWith({ url: 'https://example.com' })
+
+    await browser.tabs.update(99, { active: true, successorTabId: 10 })
+    expect(tabsUpdate).toHaveBeenCalledWith(99, { active: true })
+  })
+
+  test('adds Firefox previousTabId to Chrome activation events', async () => {
+    const listener = vi.fn()
+    browser.tabs.onActivated.addListener(listener)
+    await vi.waitFor(() => expect((chrome.tabs.query as any)).toHaveBeenCalled())
+
+    tabsOnActivated.emit({ tabId: 11, windowId: 7 })
+    tabsOnActivated.emit({ tabId: 12, windowId: 7 })
+    expect(listener).toHaveBeenNthCalledWith(1, { tabId: 11, windowId: 7, previousTabId: 10 })
+    expect(listener).toHaveBeenNthCalledWith(2, { tabId: 12, windowId: 7, previousTabId: 11 })
   })
 })
 

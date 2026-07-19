@@ -16,6 +16,7 @@ const inertEvent = {
 }
 
 const nativeTabsOnUpdated = chrome.tabs.onUpdated
+const nativeTabsOnActivated = chrome.tabs.onActivated
 const tabsOnUpdatedWrappers = new Map<
   browser.tabs.UpdatedListener,
   browser.tabs.UpdatedListener
@@ -73,6 +74,35 @@ const tabsOnUpdated = {
   },
 }
 
+const tabsOnActivatedListeners = new Set<browser.tabs.ActivatedListener>()
+const activeTabByWindow = new Map<ID, ID>()
+
+// Chrome omits Firefox's previousTabId. Seed and maintain it once per context,
+// then fan out one enriched event to every Sidebery listener.
+void chrome.tabs.query({ active: true }).then(activeTabs => {
+  for (const tab of activeTabs) {
+    if (!activeTabByWindow.has(tab.windowId)) activeTabByWindow.set(tab.windowId, tab.id)
+  }
+})
+nativeTabsOnActivated.addListener(info => {
+  const previousTabId = activeTabByWindow.get(info.windowId) ?? -1
+  activeTabByWindow.set(info.windowId, info.tabId)
+  const enriched = { ...info, previousTabId }
+  for (const listener of [...tabsOnActivatedListeners]) listener(enriched)
+})
+
+const tabsOnActivated = {
+  addListener(listener: browser.tabs.ActivatedListener): void {
+    tabsOnActivatedListeners.add(listener)
+  },
+  removeListener(listener: browser.tabs.ActivatedListener): void {
+    tabsOnActivatedListeners.delete(listener)
+  },
+  hasListener(listener: browser.tabs.ActivatedListener): boolean {
+    return tabsOnActivatedListeners.has(listener)
+  },
+}
+
 function normalizeInjectionFile(file: string): string {
   return file.replace(/^(?:\.\.?\/)+/, '')
 }
@@ -114,7 +144,24 @@ async function executeScript(
 const tabs = {
   ...chrome.tabs,
   onUpdated: tabsOnUpdated,
+  onActivated: tabsOnActivated,
   executeScript,
+
+  async create(details: browser.tabs.CreateProperties): Promise<browser.tabs.Tab> {
+    const {
+      cookieStoreId: _cookieStoreId,
+      discarded: _discarded,
+      openInReaderMode: _openInReaderMode,
+      title: _title,
+      ...chromiumDetails
+    } = details
+    return chrome.tabs.create(chromiumDetails)
+  },
+
+  async update(tabId: ID, details: browser.tabs.UpdateProperties): Promise<browser.tabs.Tab> {
+    const { successorTabId: _successorTabId, ...chromiumDetails } = details
+    return chrome.tabs.update(tabId, chromiumDetails)
+  },
 
   // Chromium selects successor tabs natively.
   moveInSuccession: async (): Promise<void> => {},

@@ -19,14 +19,17 @@ diff --git a/src/utils.ts b/src/utils.ts
 diff --git a/src/sidebar/sidebar.vue b/src/sidebar/sidebar.vue
 --- a/src/sidebar/sidebar.vue
 +++ b/src/sidebar/sidebar.vue
-@@ -257,5 +257,7 @@ function onFocusIn(e: FocusEvent): void {
+@@ -257,5 +257,10 @@ function onFocusIn(e: FocusEvent): void {
  }
  
  function onFocusOut(e: FocusEvent): void {
 -  if ((e as MozFocusEvent).explicitOriginalTarget === e.target && !DnD.reactive.isStarted) {
-+  const explicitTarget = (e as Partial<MozFocusEvent>).explicitOriginalTarget ?? e.target
++  const explicitTarget = (e as Partial<MozFocusEvent>).explicitOriginalTarget
++  const focusLeftDocument = explicitTarget
++    ? explicitTarget === e.target
++    : !document.hasFocus()
 +
-+  if (explicitTarget === e.target && !DnD.reactive.isStarted) {
++  if (focusLeftDocument && !DnD.reactive.isStarted) {
      if (Menu.isOpen) Menu.close()
 diff --git a/src/styles/page.setup/settings.storage.styl b/src/styles/page.setup/settings.storage.styl
 --- a/src/styles/page.setup/settings.storage.styl

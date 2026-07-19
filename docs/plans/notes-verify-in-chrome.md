@@ -170,3 +170,13 @@ The generated locale directory names are all Chrome-compatible. Remaining `-moz-
 `-moz-osx-font-smoothing`, and `::-moz-focus-inner` declarations are harmless unknown fallbacks;
 the only Firefox-specific `image-rendering` value now has a standard fallback. Background favicon
 code contains no DOM/canvas use, and media injection remains file-based.
+
+## Round 1 regression checks
+
+- Click **New Tab** repeatedly with the default panel, a URL shortcut, and Settings both with and
+  without an existing setup tab. Confirm Chrome reports no unexpected `cookieStoreId`,
+  `discarded`, `title`, or `openInReaderMode` create property.
+- Open every nested in-panel context-menu branch. Moving focus between parent and child entries
+  must not dismiss the menu; clicking a final action should execute it and then close normally.
+- Alternate rapidly between the Chrome tab strip and Sidebery in two windows. Exactly one tab per
+  window must remain active in Sidebery, and Sidebery clicks must activate the same native tab.
