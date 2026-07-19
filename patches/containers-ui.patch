@@ -1,0 +1,301 @@
+# Remove Chromium-inapplicable container surfaces while keeping Firefox sources untouched.
+diff --git a/src/page.setup/components/settings.vue b/src/page.setup/components/settings.vue
+--- a/src/page.setup/components/settings.vue
++++ b/src/page.setup/components/settings.vue
+@@ -5,7 +5,6 @@
+   OmniboxSection
+   NavbarSection
+   GroupSection
+-  ContainersSection
+   DndSection
+   SearchSection
+   TabsSection
+@@ -37,7 +36,6 @@ import MenuSection from './settings.menu.vue'
+ import OmniboxSection from './settings.omnibox.vue'
+ import NavbarSection from './settings.navbar.vue'
+ import GroupSection from './settings.group.vue'
+-import ContainersSection from './settings.containers.vue'
+ import DndSection from './settings.dnd.vue'
+ import SearchSection from './settings.search.vue'
+ import TabsSection from './settings.tabs.vue'
+diff --git a/src/services/setup-page.fg.ts b/src/services/setup-page.fg.ts
+--- a/src/services/setup-page.fg.ts
++++ b/src/services/setup-page.fg.ts
+@@ -2,7 +2,6 @@ import type * as T from 'src/types'
+ import * as Utils from 'src/utils'
+ import * as SetupPage from 'src/services/setup-page.fg'
+ import * as Windows from 'src/services/windows.fg'
+-import * as Containers from 'src/services/containers'
+ import * as Sidebar from 'src/services/sidebar.fg'
+ import * as Tabs from 'src/services/tabs.fg'
+ import * as Settings from 'src/services/settings'
+@@ -75,7 +74,6 @@ export let reactive: SetupPageReactiveState = {
+     { active: false, name: 'settings_omnibox', lvl: 1 },
+     { active: false, name: 'settings_nav', lvl: 1 },
+     { active: false, name: 'settings_group', lvl: 1 },
+-    { active: false, name: 'settings_containers', lvl: 1 },
+     { active: false, name: 'settings_dnd', lvl: 1 },
+     { active: false, name: 'settings_search', lvl: 1 },
+     { active: false, name: 'settings_tabs', lvl: 1 },
+@@ -273,13 +271,6 @@ export async function updateActiveView(): Promise<void> {
+     () => {
+       if (els[hash]) els[hash].scrollIntoView(scrollSectionConf)
+ 
+-      if (arg && hash === 'settings_containers') {
+-        setTimeout(() => {
+-          const container = Containers.reactive.byId[arg]
+-          if (container) SetupPage.reactive.selectedContainer = container
+-        }, 120)
+-      }
+-
+       if (arg && hash === 'settings_nav') {
+         if (SetupPage.reactive.selectedPanelConfig) SetupPage.reactive.selectedPanelConfig = null
+         setTimeout(() => {
+diff --git a/src/sidebar/sidebar.vue b/src/sidebar/sidebar.vue
+--- a/src/sidebar/sidebar.vue
++++ b/src/sidebar/sidebar.vue
+@@ -42,6 +42,5 @@
+   Transition(name="popup" type="transition"): BookmarksPopup(v-if="Bookmarks.reactive.popup")
+   Transition(name="popup" type="transition"): PanelConfigPopup(v-if="Popups.reactive.panelConfigPopup")
+-  Transition(name="popup" type="transition"): ContainerConfigPopup(v-if="Popups.reactive.containerConfigPopup")
+   Transition(name="popup" type="transition"): GroupConfigPopup(v-if="Popups.reactive.groupConfigPopup")
+   Transition(name="popup" type="transition"): DialogPopup(v-if="Popups.reactive.dialog" :dialog="Popups.reactive.dialog")
+   Transition(name="popup" type="transition"): NewTabShortcutsPopup(v-if="Popups.reactive.newTabShortcutsPopup")
+@@ -159,6 +158,5 @@ import SearchBar from './components/bar.search.vue'
+ import BookmarksPopup from 'src/components/popup.bookmarks.vue'
+ import PanelConfigPopup from './components/popup.panel-config.vue'
+-import ContainerConfigPopup from './components/popup.container-config.vue'
+ import GroupConfigPopup from './components/popup.group-config.vue'
+ import DialogPopup from 'src/components/popup.dialog.vue'
+ import NewTabShortcutsPopup from '../components/popup.new-tab-shortcuts.vue'
+diff --git a/src/components/popup.site-config.vue b/src/components/popup.site-config.vue
+--- a/src/components/popup.site-config.vue
++++ b/src/components/popup.site-config.vue
+@@ -18,15 +18,6 @@
+       label="popup.url_rules.custom_match_placeholder"
+       or="---"
+       :line="true")
+-    .space
+-    SelectField.-no-separator(
+-      label="popup.url_rules.reopen_label"
+-      noneOpt="-"
+-      v-model:value="reopenInContainerId"
+-      :opts="availableContainerOpts"
+-      :inline="false"
+-      :folded="true"
+-      @update:value="onReopenContainerUpd")
+     .space
+     SelectField.-no-separator(
+       label="popup.url_rules.move_label"
+diff --git a/src/page.setup/components/popup.panel-config.vue b/src/page.setup/components/popup.panel-config.vue
+--- a/src/page.setup/components/popup.panel-config.vue
++++ b/src/page.setup/components/popup.panel-config.vue
+@@ -117,29 +117,6 @@
+     :value="conf.noEmpty"
+     @update:value="togglePanelNoEmpty")
+ 
+-  SelectField(
+-    v-if="Utils.isTabsPanel(conf)"
+-    label="panel.new_tab_ctx"
+-    :value="newTabCtx"
+-    :opts="containersOpts"
+-    :folded="true"
+-    @update:value="togglePanelNewTabCtx")
+-  .sub-fields
+-    ToggleField(
+-      v-if="Utils.isTabsPanel(conf)"
+-      label="panel.new_tab_ctx_reopen"
+-      :inactive="conf.newTabCtx === 'none'"
+-      :value="Settings.state.newTabCtxReopen"
+-      @update:value="toggleNewTabCtxReopen")
+-
+-  SelectField(
+-    v-if="Utils.isTabsPanel(conf)"
+-    label="panel.drop_tab_ctx"
+-    :value="dropTabCtx"
+-    :opts="availableForAutoMoveContainersOpts"
+-    :folded="true"
+-    @update:value="togglePanelDropTabCtx")
+-
+   SelectField(
+     v-if="Utils.isBookmarksPanel(conf)"
+     label="panel.bookmarks_view_mode"
+diff --git a/src/components/popup.new-tab-shortcuts.vue b/src/components/popup.new-tab-shortcuts.vue
+--- a/src/components/popup.new-tab-shortcuts.vue
++++ b/src/components/popup.new-tab-shortcuts.vue
+@@ -33,12 +33,5 @@
+     .space
+     h2 {{translate('popup.new_tab_shortcuts.create_title')}}
+-    SelectField.-no-separator(
+-      label="popup.new_tab_shortcuts.new_shortcut_container_label"
+-      noneOpt="-"
+-      v-model:value="newShortcutContainerId"
+-      :opts="availableContainersOpts"
+-      :inline="false"
+-      :folded="true")
+     TextField.-no-separator(
+       label="popup.new_tab_shortcuts.new_shortcut_url_label"
+       v-model:value="newShortcutURL"
+@@ -72,5 +65,4 @@ import * as Utils from 'src/utils'
+ import * as Popups from 'src/services/popups.fg'
+ import TextField from './text-field.vue'
+-import SelectField from './select-field.vue'
+ 
+ interface NewTabShortcut {
+diff --git a/src/page.setup/components/settings.menu.vue b/src/page.setup/components/settings.menu.vue
+--- a/src/page.setup/components/settings.menu.vue
++++ b/src/page.setup/components/settings.menu.vue
+@@ -20,17 +20,6 @@
+     dbg="ctxMenuRenderIcons"
+     :default="DEFAULT_SETTINGS.ctxMenuRenderIcons"
+     @update:value="Settings.saveDebounced(150)")
+-  TextField(
+-    label="settings.ctx_menu_ignore_ctr"
+-    :or="translate('settings.ctx_menu_ignore_ctr_or')"
+-    :note="translate('settings.ctx_menu_ignore_ctr_note')"
+-    :line="true"
+-    :valid="ignoreContainersRuleValid"
+-    input-width="50"
+-    v-model:value="Settings.state.ctxMenuIgnoreContainers"
+-    dbg="ctxMenuIgnoreContainers"
+-    :default="DEFAULT_SETTINGS.ctxMenuIgnoreContainers"
+-    @update:value="onCtxMenuIgnoreContainersUpdate")
+   .ctrls
+     .btn(@click="SetupPage.switchView('menu_editor')") {{translate('settings.ctx_menu_editor')}}
+ </template>
+@@ -38,28 +27,11 @@
+ <script lang="ts" setup>
+ import { ref, onMounted } from 'vue'
+-import * as Utils from 'src/utils'
+ import { translate } from 'src/dict'
+ import { DEFAULT_SETTINGS } from 'src/defaults'
+ import * as Settings from 'src/services/settings.fg'
+-import * as Menu from 'src/services/menu.fg'
+ import * as SetupPage from 'src/services/setup-page.fg'
+-import TextField from '../../components/text-field.vue'
+ import ToggleField from '../../components/toggle-field.vue'
+ 
+ const el = ref<HTMLElement | null>(null)
+-const ignoreContainersRuleValid = ref('')
+-const validateIgnoreContainersRule = Utils.debounce((value: string): void => {
+-  if (!value) {
+-    ignoreContainersRuleValid.value = ''
+-  } else {
+-    let rules = Menu.getContainersRules(value)
+-    if (!rules) ignoreContainersRuleValid.value = 'invalid'
+-    else ignoreContainersRuleValid.value = 'valid'
+-  }
+-})
+-function onCtxMenuIgnoreContainersUpdate(value: string): void {
+-  validateIgnoreContainersRule(321, value)
+-  Settings.saveDebounced(500)
+-}
+ 
+ onMounted(() => SetupPage.registerEl('settings_menu', el.value))
+diff --git a/src/services/menu.fg.ts b/src/services/menu.fg.ts
+--- a/src/services/menu.fg.ts
++++ b/src/services/menu.fg.ts
+@@ -24,6 +24,17 @@ export let ctxMenuIgnoreContainersRules: Record<string, boolean> = {}
+ 
+ export type OpenCallback = (blocks: T.MenuBlock[], x?: number, y?: number) => void
+ 
++const UNSUPPORTED_MENU_OPTIONS = new Set([
++  'newTabContainers',
++  'newTabNewContainer',
++  'manageContainers',
++  'reopenInCtr',
++  'reopenInNewCtr',
++  'openTabsInCtr',
++  'openInCtr',
++  'clearCookies',
++])
++
+ const openCallbacks: OpenCallback[] = []
+ const closeCallbacks: (() => void)[] = []
+ const xmlSerializer = new XMLSerializer()
+@@ -92,24 +103,45 @@ export async function importSyncedCtxMenu(entry: Sync.SyncedEntry) {
+ }
+ 
+ export async function importCtxMenu(ctxMenu: T.MenuConfs) {
++  ctxMenu = sanitizeCtxMenu(ctxMenu)
+   Logs.info('Menu.importCtxMenu(): ctxMenu:', ctxMenu)
+ 
+   await Store.set({ contextMenu: ctxMenu })
+   Menu.setCtxMenu(ctxMenu)
+ }
+ 
++export function sanitizeCtxMenu(conf: T.MenuConfs): T.MenuConfs {
++  const sanitize = (menu?: T.MenuConf): T.MenuConf | undefined =>
++    menu?.reduce<T.MenuConf>((result, entry) => {
++      if (typeof entry === 'string') {
++        if (!UNSUPPORTED_MENU_OPTIONS.has(entry)) result.push(entry)
++      } else {
++        const opts = entry.opts.filter(opt => !UNSUPPORTED_MENU_OPTIONS.has(opt))
++        if (opts.length) result.push({ ...entry, opts })
++      }
++      return result
++    }, [])
++
++  return {
++    tabs: sanitize(conf.tabs),
++    tabsPanel: sanitize(conf.tabsPanel),
++    bookmarks: sanitize(conf.bookmarks),
++    bookmarksPanel: sanitize(conf.bookmarksPanel),
++  }
++}
++
+ function onMenuHiddenFg(): void {
+   Selection.resetSelection()
+ }
+ 
+ export function setCtxMenu(conf?: T.MenuConfs) {
+-  if (!conf) conf = {}
++  conf = sanitizeCtxMenu(conf ?? {})
+   if (conf.tabs?.length) tabsConf = conf.tabs
+-  else tabsConf = Utils.cloneArray(D.TABS_MENU)
++  else tabsConf = sanitizeCtxMenu({ tabs: Utils.cloneArray(D.TABS_MENU) }).tabs ?? []
+   if (conf.tabsPanel?.length) tabsPanelConf = conf.tabsPanel
+   else tabsPanelConf = Utils.cloneArray(D.TABS_PANEL_MENU)
+   if (conf.bookmarks?.length) bookmarksConf = conf.bookmarks
+-  else bookmarksConf = Utils.cloneArray(D.BOOKMARKS_MENU)
++  else bookmarksConf = sanitizeCtxMenu({ bookmarks: Utils.cloneArray(D.BOOKMARKS_MENU) }).bookmarks ?? []
+   if (conf.bookmarksPanel?.length) bookmarksPanelConf = conf.bookmarksPanel
+   else bookmarksPanelConf = Utils.cloneArray(D.BOOKMARKS_PANEL_MENU)
+ }
+@@ -186,6 +218,7 @@ function createOption(
+   optName: string,
+   prevOpt: T.MenuOption | undefined
+ ): T.MenuOption | T.MenuOption[] | undefined {
++  if (UNSUPPORTED_MENU_OPTIONS.has(optName)) return
+   const gen = menuOptions[optName]
+   if (gen) return gen()
+   else if (optName.startsWith('separator')) {
+diff --git a/src/page.setup/components/menu-editor.vue b/src/page.setup/components/menu-editor.vue
+--- a/src/page.setup/components/menu-editor.vue
++++ b/src/page.setup/components/menu-editor.vue
+@@ -168,9 +168,6 @@ const TABS_MENU_OPTS: Record<string, string> = {
+   moveToNewPanel: 'menu.tab.move_to_new_panel',
+   reopenInNewWin: 'menu.tab.reopen_in_new_window',
+   reopenInWin: 'menu.tab.reopen_in_window',
+-  reopenInCtr: 'menu.tab.reopen_in_ctr_',
+-  reopenInNewCtr: 'menu.tab.reopen_in_new_container',
+-  openTabsInCtr: 'menu.tab.open_in_ctr_',
+   mute: 'menu.tab.mute',
+   duplicate: 'menu.tab.duplicate',
+   discard: 'menu.tab.discard',
+@@ -197,7 +194,6 @@ const TABS_MENU_OPTS: Record<string, string> = {
+   sortTabsTreeByUrlDescending: 'menu.tab.sort_tree_by_url_des',
+   sortTabsTreeByAccessTimeAscending: 'menu.tab.sort_tree_by_time_asc',
+   sortTabsTreeByAccessTimeDescending: 'menu.tab.sort_tree_by_time_des',
+-  clearCookies: 'menu.tab.clear_cookies',
+   closeDescendants: 'menu.tab.close_descendants',
+   close: 'menu.tab.close',
+   closeBranch: 'menu.tab.close_branch',
+@@ -236,7 +232,6 @@ const BOOKMARKS_MENU_OPTS: Record<string, string> = {
+   openInNewPrivWin: 'menu.bookmark.open_in_new_priv_window',
+   openInNewPanel: 'menu.bookmark.open_in_new_panel',
+   openInPanel: 'menu.bookmark.open_in_panel_',
+-  openInCtr: 'menu.bookmark.open_in_ctr_',
+   openAsBookmarksPanel: 'menu.bookmark.open_as_bookmarks_panel',
+   openAsTabsPanel: 'menu.bookmark.open_as_tabs_panel',
+   createBookmark: 'menu.bookmark.create_bookmark',
