@@ -378,12 +378,23 @@ const search = {
   },
 }
 
+const bookmarks = {
+  ...chrome.bookmarks,
+  create(details: browser.bookmarks.CreateDetails): Promise<browser.bookmarks.TreeNode> {
+    if (details.type === 'separator') {
+      return Promise.reject(new Error('Chromium does not support bookmark separators'))
+    }
+    const { type: _type, ...chromiumDetails } = details
+    return chrome.bookmarks.create(chromiumDetails) as Promise<browser.bookmarks.TreeNode>
+  },
+}
+
 const browserShim = {
   tabs,
   windows,
   runtime,
   storage,
-  bookmarks: chrome.bookmarks,
+  bookmarks,
   history: chrome.history,
   downloads: chrome.downloads,
   permissions: chrome.permissions,
