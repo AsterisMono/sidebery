@@ -1,0 +1,18 @@
+# The Chromium manifest drops open_sync_popup; unknown commands intentionally fall through.
+diff --git a/src/services/keybindings.fg.ts b/src/services/keybindings.fg.ts
+--- a/src/services/keybindings.fg.ts
++++ b/src/services/keybindings.fg.ts
+@@ -284,12 +284,7 @@ export function onCommand(name: string): void {
+   else if (name === 'copy_url') onKeyCopyUrl()
+   else if (name.startsWith('copy_tmplt_')) onKeyCopyByTemplate(parseInt(name.slice(-1)))
+   else if (name === 'open_bookmarks_sub_panel') onKeyOpenBookmarksSubPanel()
+-  else if (name === 'open_sync_popup') onKeyOpenSyncPopup()
+ }
+ 
+-function onKeyOpenSyncPopup() {
+-  Sync.openSyncPopup()
+-}
+-
+ function onKeyOpenBookmarksSubPanel() {
+   if (!Settings.state.subPanelBookmarks) return
+ 
