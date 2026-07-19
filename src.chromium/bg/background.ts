@@ -100,6 +100,13 @@ async function main(): Promise<void> {
     .setPanelBehavior({ openPanelOnActionClick: true })
     .catch(error => Logs.err('Cannot configure Chromium action side panel behavior', error))
 
+  // `_execute_action` is browser-reserved: Chrome performs the action click and
+  // does not dispatch commands.onCommand. If repeated presses do not close in
+  // Chrome 150, add a non-reserved `toggle_side_panel` manifest command and bind:
+  // chrome.commands.onCommand.addListener(cmd => {
+  //   if (cmd === 'toggle_side_panel') void browser.sidebarAction.toggle()
+  // })
+
   browser.runtime.onUpdateAvailable.addListener(details => {
     const currentVersion = Info.versionToInt(browser.runtime.getManifest().version)
     const newVersion = Info.versionToInt(details.version)

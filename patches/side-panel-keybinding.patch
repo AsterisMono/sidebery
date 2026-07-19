@@ -1,0 +1,13 @@
+# Chromium replaces Firefox's reserved sidebar command with the reserved action command.
+diff --git a/src/page.setup/components/keybindings.vue b/src/page.setup/components/keybindings.vue
+--- a/src/page.setup/components/keybindings.vue
++++ b/src/page.setup/components/keybindings.vue
+@@ -3,7 +3,7 @@
+   section(ref="el")
+     h2 {{translate('settings.kb_general')}}
+     span.header-shadow
+-    KeybindingField.-no-separator(:keybinding="Keybindings.reactive.byName._execute_sidebar_action")
++    KeybindingField.-no-separator(:keybinding="Keybindings.reactive.byName._execute_action")
+     KeybindingField(:keybinding="Keybindings.reactive.byName.activate")
+     .info {{translate('settings.kb_select_act_note')}}
+     KeybindingField(:keybinding="Keybindings.reactive.byName.reset_selection")
