@@ -1,0 +1,90 @@
+# Rebuild or eagerly persist state that cannot rely on a long-lived MV3 worker.
+diff --git a/src/services/tabs.bg.ts b/src/services/tabs.bg.ts
+--- a/src/services/tabs.bg.ts
++++ b/src/services/tabs.bg.ts
+@@ -188,6 +188,10 @@ function onTabCreated(nativeTab: browser.tabs.Tab): void {
+     return
+   }
+ 
++  // A tab can be returned by the startup query and queued by onCreated.
++  // Replaying that event must not insert the same native tab twice.
++  if (Tabs.byId[nativeTab.id]) return
++
+   const tab = mutateNativeTabToSideberyTab(nativeTab)
+ 
+   tab.internal = tab.url.startsWith(D.ADDON_HOST)
+diff --git a/src/services/omnibox.bg.ts b/src/services/omnibox.bg.ts
+--- a/src/services/omnibox.bg.ts
++++ b/src/services/omnibox.bg.ts
+@@ -12,5 +12,6 @@ import * as Settings from 'src/services/settings'
+ import * as IPC from 'src/services/ipc'
+ import * as Store from 'src/services/storage.bg'
++import { waitForBackgroundReady } from 'src/platform/background-ready'
+ 
+ interface OmniCmd {
+   type: E.OmniCmdType
+@@ -51,5 +52,5 @@ export async function load() {
+     description: translate('omnibox.default_suggestion'),
+   })
+ 
+-  updateCommandsDebounced(500)
++  updateCommands()
+ }
+@@ -365,7 +366,11 @@ async function runCmd(cmd: OmniCmd) {
+ }
+ 
+ function onInputChanged(input: string, suggest: (s: browser.omnibox.SuggestResult[]) => void) {
+-  filtered = filterCmds(input)
++  void waitForBackgroundReady().then(() => suggestInput(input, suggest))
++}
++
++function suggestInput(input: string, suggest: (s: browser.omnibox.SuggestResult[]) => void) {
++  filtered = filterCmds(input)
+   const suggestions = filtered.map(cmd => ({
+     content: cmd.value,
+     description: cmd.name,
+@@ -376,6 +380,7 @@ function onInputChanged(input: string, suggest: (s: browser.omnibox.SuggestResult[]) => void) {
+ }
+ 
+ async function onInputEntered(input: string, newTabPos: browser.omnibox.OnInputEnteredDisposition) {
++  await waitForBackgroundReady()
+   if (!filtered?.length) return
+ 
+   let targetCmd = filtered.find(cmd => cmd.value === input)
+diff --git a/src/services/storage.bg.ts b/src/services/storage.bg.ts
+--- a/src/services/storage.bg.ts
++++ b/src/services/storage.bg.ts
+@@ -24,6 +24,4 @@ const SETUP_LISTENED_KEYS = [
+ const PANEL_CONFIG_LISTENED_KEYS = ['settings', 'sidebar', 'containers']
+ 
+-let storageBuf: Stored = {}
+-let storageBufTimeout: number | undefined
+ async function _set(newValues: Stored, srcInfo?: IPCNodeInfo): Promise<void> {
+   let changesForSidebar: Record<string, any> | undefined
+@@ -81,12 +79,5 @@ async function _set(newValues: Stored, srcInfo?: IPCNodeInfo): Promise<void> {
+-export async function set(newValues: Stored, delay?: number): Promise<void> {
+-  if (!delay) return _set(newValues)
+-
+-  storageBuf = { ...storageBuf, ...newValues }
+-
+-  clearTimeout(storageBufTimeout)
+-  storageBufTimeout = setTimeout(() => {
+-    _set(storageBuf)
+-    storageBuf = {}
+-  }, delay)
++export async function set(newValues: Stored, _delay?: number): Promise<void> {
++  // Timers are not durable in an MV3 worker; foreground callers already coalesce writes.
++  return _set(newValues)
+ }
+ export function setFromRemoteFg(newValues: Stored, srcInfo: IPCNodeInfo) {
+diff --git a/src/services/sidebar.bg.ts b/src/services/sidebar.bg.ts
+--- a/src/services/sidebar.bg.ts
++++ b/src/services/sidebar.bg.ts
+@@ -101,5 +101,6 @@ export function setActivePanelId(winId: ID, panelId: ID) {
+ 
+   win.activePanelId = panelId
+ 
+-  saveFocusedActivePanelIdDebounced(1000)
++  // This IPC action may be the worker's final task; persist before it can stop.
++  saveFocusedActivePanelId()
+ }
