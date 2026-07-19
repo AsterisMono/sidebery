@@ -1,5 +1,5 @@
-# Hide the Firefox-only tab preview controls. Plan 12 extends this shared patch
-# with the native tab-hiding settings hunk.
+# Hide the Firefox-only tab preview controls. This patch is applied only to the
+# Chromium staging tree. Plan 12 extends it with the tab-hiding settings hunk.
 diff --git a/src/page.setup/components/settings.tabs.vue b/src/page.setup/components/settings.tabs.vue
 --- a/src/page.setup/components/settings.tabs.vue
 +++ b/src/page.setup/components/settings.tabs.vue
@@ -8,7 +8,7 @@ diff --git a/src/page.setup/components/settings.tabs.vue b/src/page.setup/compon
        @update:value="Settings.saveDebounced(150)")
  
 -  .wrapper(ref="tabsPreviewEl")
-+  .wrapper(v-if="!IS_CHROMIUM" ref="tabsPreviewEl")
++  .wrapper(v-if="false" ref="tabsPreviewEl")
      .sub-title: .text {{translate('settings.nav_settings_tabs_preview')}}
      ToggleField.-no-separator(
        label="settings.tabs.preview"
