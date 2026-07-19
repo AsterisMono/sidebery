@@ -1,0 +1,68 @@
+# Chromium bookmark nodes omit Firefox's type field and do not support separators.
+diff --git a/src/services/bookmarks.fg.ts b/src/services/bookmarks.fg.ts
+--- a/src/services/bookmarks.fg.ts
++++ b/src/services/bookmarks.fg.ts
+@@ -93,8 +93,9 @@ class BkmNode {
+ 
+   constructor(nativeBkm: T.NativeBkmNode) {
+     this.id = nativeBkm.id ?? D.NOID
+-    if (nativeBkm.type === 'bookmark') this.type = E.BkmType.Bookmark
+-    else if (nativeBkm.type === 'folder') this.type = E.BkmType.Folder
++    const nativeType = nativeBkm.type ?? (nativeBkm.url ? 'bookmark' : 'folder')
++    if (nativeType === 'bookmark') this.type = E.BkmType.Bookmark
++    else if (nativeType === 'folder') this.type = E.BkmType.Folder
+     else this.type = E.BkmType.Separator
+     this.index = nativeBkm.index ?? -1
+     this.parentId = nativeBkm.parentId ?? D.NOID
+@@ -792,8 +793,7 @@ export async function createBookmarkNode(
+ 
+   if (!parentId) parentId = D.BKM_OTHER_ID
+ 
+-  if (type === 'separator') {
+-    await browser.bookmarks.create({ parentId, type: 'separator', index })
+-  } else {
++  if (type === 'separator') return
++  {
+     const isBookmark = type === 'bookmark'
+     const result = await openBookmarksPopup({
+@@ -1353,20 +1353,6 @@ export async function saveToFolder(
+ 
+       // Separator
+       if (!item.url && !item.title) {
+-        const sepIndex = bookmarksList.findIndex(n => n.type === E.BkmType.Separator)
+-        const separator = bookmarksList[sepIndex]
+-        // Separator exists
+-        if (separator) {
+-          bookmarksList.splice(sepIndex, 1)
+-          if (separator.index !== index || parentFolderId !== separator.parentId) {
+-            await browser.bookmarks.move(separator.id, { index, parentId: parentFolderId })
+-          }
+-        }
+-        // Create separator
+-        else {
+-          const createConf = { type: 'separator' as const, index, parentId: parentFolderId }
+-          await browser.bookmarks.create(createConf)
+-        }
+         continue
+       }
+ 
+diff --git a/src/services/menu.fg.options.bookmarks.ts b/src/services/menu.fg.options.bookmarks.ts
+--- a/src/services/menu.fg.options.bookmarks.ts
++++ b/src/services/menu.fg.options.bookmarks.ts
+@@ -143,15 +143,7 @@ export const BOOKMARKS_MENU_OPTIONS: Partial<
+   },
+ 
+   createSeparator: () => {
+-    const node = Bookmarks.byId.get(Selection.getFirst())
+-    if (!node) return
+-    const option: MenuOption = {
+-      label: translate('menu.bookmark.create_separator'),
+-      icon: 'icon_create_separator',
+-      onClick: () => Bookmarks.createBookmarkNode('separator', node),
+-    }
+-    if (!Settings.state.ctxMenuRenderInact && option.inactive) return
+-    return option
++    return
+   },
+ 
+   sortByNameAscending: () => {
