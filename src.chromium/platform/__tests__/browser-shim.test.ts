@@ -52,6 +52,7 @@ let tabsOnActivated: ReturnType<typeof createEvent<(info: { tabId: ID; windowId:
 let tabsOnRemoved: ReturnType<typeof createEvent<browser.tabs.RemovedListener>>
 let tabsCreate: ReturnType<typeof vi.fn>
 let tabsUpdate: ReturnType<typeof vi.fn>
+let tabsDiscard: ReturnType<typeof vi.fn>
 let tabsHighlight: ReturnType<typeof vi.fn>
 let windowsOnRemoved: ReturnType<typeof createEvent<(windowId: ID) => void>>
 let sessionStorage: ReturnType<typeof createStorageArea>
@@ -74,6 +75,7 @@ async function loadShim(): Promise<typeof browser> {
   tabsOnRemoved = createEvent<browser.tabs.RemovedListener>()
   tabsCreate = vi.fn().mockImplementation(async details => ({ id: 99, windowId: 7, ...details }))
   tabsUpdate = vi.fn().mockImplementation(async (id, details) => ({ id, windowId: 7, ...details }))
+  tabsDiscard = vi.fn().mockImplementation(async id => ({ id, windowId: 7, discarded: true }))
   tabsHighlight = vi.fn().mockResolvedValue({ id: 7 })
   windowsOnRemoved = createEvent<(windowId: ID) => void>()
   sessionStorage = createStorageArea()
@@ -92,6 +94,7 @@ async function loadShim(): Promise<typeof browser> {
       query: vi.fn().mockResolvedValue([{ id: 10, windowId: 7, active: true }]),
       create: tabsCreate,
       update: tabsUpdate,
+      discard: tabsDiscard,
       highlight: tabsHighlight,
     },
     windows: {
@@ -252,6 +255,15 @@ describe('tabs creation and activation semantics', () => {
     tabsOnRemoved.emit(12, { isWindowClosing: false, windowId: 7 })
     tabsOnActivated.emit({ tabId: 13, windowId: 7 })
     expect(listener).toHaveBeenNthCalledWith(3, { tabId: 13, windowId: 7, previousTabId: -1 })
+  })
+
+  test('maps Firefox bulk discard calls to Chromium single-tab calls', async () => {
+    await expect(browser.tabs.discard([7, 9])).resolves.toBeUndefined()
+    expect(tabsDiscard).toHaveBeenNthCalledWith(1, 7)
+    expect(tabsDiscard).toHaveBeenNthCalledWith(2, 9)
+
+    await browser.tabs.discard(11)
+    expect(tabsDiscard).toHaveBeenNthCalledWith(3, 11)
   })
 })
 

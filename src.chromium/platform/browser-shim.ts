@@ -183,6 +183,11 @@ const tabs = {
     return chrome.tabs.update(tabId, chromiumDetails)
   },
 
+  async discard(tabIds: ID | ID[]): Promise<void> {
+    const ids = Array.isArray(tabIds) ? tabIds : [tabIds]
+    await Promise.all(ids.map(tabId => chrome.tabs.discard(tabId)))
+  },
+
   async highlight(details: browser.tabs.HighlightInfo): Promise<browser.windows.Window> {
     const { populate: _populate, ...chromiumDetails } = details
     return chrome.tabs.highlight(chromiumDetails)

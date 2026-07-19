@@ -163,6 +163,11 @@ interface ChromiumApi {
 
 declare const chrome: ChromiumApi
 
+declare namespace browser.tabs {
+  type ReplacedListener = (addedTabId: ID, removedTabId: ID) => void
+  const onReplaced: ChromiumEvent<ReplacedListener>
+}
+
 declare namespace browser.sessions {
   function removeTabValue(tabId: ID, key: string): Promise<void>
   function removeWindowValue(windowId: ID, key: string): Promise<void>

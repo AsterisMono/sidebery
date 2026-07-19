@@ -1,0 +1,185 @@
+# Migrate Chromium replacement tab ids and keep pin moves from leaving stale panel entries.
+diff --git a/src/services/tabs.fg.handlers.ts b/src/services/tabs.fg.handlers.ts
+--- a/src/services/tabs.fg.handlers.ts
++++ b/src/services/tabs.fg.handlers.ts
+@@ -19,6 +19,7 @@ import * as Popups from 'src/services/popups.fg'
+ import * as Links from 'src/services/links'
+ import * as Info from 'src/services/info.fg'
+ import * as PlatformUrls from 'src/platform/urls'
++import { replaceId, replaceTabId } from 'src/platform/tab-id-replacement'
+ 
+ const EXT_HOST = new URL(browser.runtime.getURL('')).hostname
+ const URL_HOST_PATH_RE = /^([a-z0-9-]{1,63}\.)+\w+(:\d+)?\/[A-Za-z0-9-._~:/?#[\]%@!$&'()*+,;=]*$/
+@@ -39,6 +39,7 @@ export function setupTabsListeners(): void {
+ 
+   browser.tabs.onCreated.addListener(onTabCreated)
+   browser.tabs.onUpdated.addListener(onTabUpdated, { properties: updProps })
++  browser.tabs.onReplaced.addListener(onTabReplaced)
+   browser.tabs.onRemoved.addListener(onTabRemoved)
+   browser.tabs.onMoved.addListener(onTabMoved)
+   browser.tabs.onDetached.addListener(onTabDetached)
+@@ -50,6 +51,7 @@ export function resetTabsListeners(): void {
+ export function resetTabsListeners(): void {
+   browser.tabs.onCreated.removeListener(onTabCreated)
+   browser.tabs.onUpdated.removeListener(onTabUpdated)
++  browser.tabs.onReplaced.removeListener(onTabReplaced)
+   browser.tabs.onRemoved.removeListener(onTabRemoved)
+   browser.tabs.onMoved.removeListener(onTabMoved)
+   browser.tabs.onDetached.removeListener(onTabDetached)
+@@ -988,8 +988,9 @@ function onTabUpdated(tabId: ID, change: browser.tabs.ChangeInfo, nativeTab: Nat
+       if (!tab.unpinning) {
+         const startIndex = panel.startTabIndex
++        const targetIndex = startIndex - 1
+         tab.dstPanelId = tab.panelId = panel.id
+         Tabs.list.splice(tab.index, 1)
+-        Tabs.list.splice(startIndex - 1, 0, tab)
++        Tabs.list.splice(targetIndex, 0, tab)
+         Tabs.updateTabsIndexes()
+         Sidebar.recalcTabsPanels()
+         Sidebar.recalcVisibleTabs(tab.panelId)
+@@ -998,11 +999,12 @@ function onTabUpdated(tabId: ID, change: browser.tabs.ChangeInfo, nativeTab: Nat
+         const relGroupTab = Tabs.byId[tab.relGroupId]
+         if (relGroupTab) {
+           Tabs.replaceRelGroupWithPinnedTab(relGroupTab, tab)
+-        } else {
++        } else if (nativeTab.index !== targetIndex) {
+           tab.moving = true
+           browser.tabs
+-            .move(tabId, { index: startIndex - 1 })
++            .move(tabId, { index: targetIndex })
+             .catch(err => {
++              if (tab.removing || !Tabs.byId[tabId]) return
+               Logs.err('Tabs.onTabUpdated: Cannot move unpinned tab:', err)
+             })
+             .finally(() => {
+@@ -1127,6 +1132,56 @@ function rememberChildTabs(childId: ID, parentId: ID): void {
+   }, 100)
+ }
+ 
++/**
++ * Tabs.onReplaced
++ *
++ * Chromium can replace a tab's WebContents while discarding it. The native
++ * tab then gets a new id without onRemoved/onCreated, so migrate every live
++ * Sidebery reference before Chromium sends onUpdated for the new id.
++ */
++function onTabReplaced(addedTabId: ID, removedTabId: ID): void {
++  if (!Tabs.ready || waitForOtherReopenedTabsBuffer || Tabs.sorting) {
++    Tabs.deferredEventHandling.push(() => onTabReplaced(addedTabId, removedTabId))
++    return
++  }
++
++  const replacedTab = Tabs.byId[removedTabId]
++  if (!replacedTab) return
++  if (Tabs.byId[addedTabId]) return Tabs.reinitTabs()
++
++  if (Selection.selected.has(removedTabId)) Selection.resetSelection()
++  IPPC.reset(replacedTab)
++  Preview.resetTargetTab(removedTabId, 0)
++
++  const tab = replaceTabId(Tabs.byId, Tabs.list, addedTabId, removedTabId) as Tab
++  if (tab.sessionData) tab.sessionData.id = addedTabId
++
++  replaceId(Tabs.movingTabs, removedTabId, addedTabId)
++  replaceId(Tabs.removingTabs, removedTabId, addedTabId)
++  replaceId(Tabs.activeTabsGlobal.actTabs, removedTabId, addedTabId)
++  for (const history of Object.values(Tabs.activeTabsPerPanel)) {
++    replaceId(history.actTabs, removedTabId, addedTabId)
++  }
++  for (const position of Object.values(Tabs.newTabsPosition)) {
++    if (position.parent === removedTabId) position.parent = addedTabId
++  }
++  for (const removedTab of Tabs.removedTabs) {
++    if (removedTab.parentId === removedTabId) removedTab.parentId = addedTabId
++    if (removedTab.children) replaceId(removedTab.children, removedTabId, addedTabId)
++  }
++
++  if (Tabs.detachingTabIds.delete(removedTabId)) Tabs.detachingTabIds.add(addedTabId)
++  if (Tabs.activeId === removedTabId) Tabs.setActiveId(addedTabId)
++  if (deferredActivationHandling.id === removedTabId) deferredActivationHandling.id = addedTabId
++
++  Sidebar.recalcTabsPanels(true)
++  Sidebar.recalcVisibleTabs()
++  Tabs.updateTabsTree()
++  Tabs.saveTabData(addedTabId, true)
++  Tabs.cacheTabsData()
++  browser.sessions.removeTabValue(removedTabId, 'data').catch(() => {})
++}
++
+ /**
+  * Tabs.onRemoved
+  */
+@@ -1560,8 +1615,15 @@ function onTabMoved(id: ID, info: browser.tabs.MoveInfo): void {
+   // Add badge urgency to new ancestors / panel
+   if (tab.badgeUrgent) Tabs.propagateBadgeUrgency(tab)
+ 
+-  if (srcPanel) Sidebar.recalcVisibleTabs(srcPanel.id)
+-  if (dstPanel && dstPanel !== srcPanel) Sidebar.recalcVisibleTabs(dstPanel.id)
++  if (movedTab.pinned) {
++    Sidebar.recalcVisibleTabs(movedTab.panelId)
++    if (movedTab.prevPanelId !== movedTab.panelId) {
++      Sidebar.recalcVisibleTabs(movedTab.prevPanelId)
++    }
++  } else {
++    if (srcPanel) Sidebar.recalcVisibleTabs(srcPanel.id)
++    if (dstPanel && dstPanel !== srcPanel) Sidebar.recalcVisibleTabs(dstPanel.id)
++  }
+ 
+   if (movedTab.panelId !== Sidebar.activePanelId && movedTab.active) {
+     Sidebar.activatePanel(movedTab.panelId)
+
+diff --git a/src/services/tabs.bg.ts b/src/services/tabs.bg.ts
+--- a/src/services/tabs.bg.ts
++++ b/src/services/tabs.bg.ts
+@@ -19,6 +19,7 @@ import {
+   mergeTabsDataCache,
+   removeTabsDataCache as removeStoredTabsDataCache,
+ } from 'src/platform/tab-cache'
++import { replaceTabId } from 'src/platform/tab-id-replacement'
+ 
+ import * as Tabs from 'src/services/tabs.bg'
+ 
+@@ -170,6 +171,7 @@ function mutateNativeTabToSideberyTab(nativeTab: T.NativeTab): T.BgTab {
+ 
+ export function setupListeners(): void {
+   browser.tabs.onCreated.addListener(onTabCreated)
++  browser.tabs.onReplaced.addListener(onTabReplaced)
+   browser.tabs.onRemoved.addListener(onTabRemoved)
+   browser.tabs.onUpdated.addListener(onTabUpdated, {
+     properties: ['pinned', 'title', 'status', 'favIconUrl', 'url', 'hidden', 'discarded'],
+@@ -261,6 +263,35 @@ function onTabCreated(nativeTab: browser.tabs.Tab): void {
+   }
+ }
+ 
++/**
++ * Handle Chromium WebContents replacement (including tab discard).
++ */
++function onTabReplaced(addedTabId: ID, removedTabId: ID): void {
++  if (!Tabs.ready) {
++    Tabs.deferredEventHandling.push(() => onTabReplaced(addedTabId, removedTabId))
++    return
++  }
++
++  const replacedTab = Tabs.byId[removedTabId]
++  if (!replacedTab) return
++  if (Tabs.byId[addedTabId]) {
++    void reinitTabs('onTabReplaced: Added tab already exists')
++    return
++  }
++
++  IPPC.reset(replacedTab)
++  const tab = replaceTabId(
++    Tabs.byId,
++    Object.values(Tabs.byId),
++    addedTabId,
++    removedTabId
++  ) as T.BgTab
++
++  const tabWindow = Windows.byId.get(tab.windowId)
++  if (tabWindow?.activeTabId === removedTabId) tabWindow.activeTabId = addedTabId
++  if (tab.proxified) showProxyBadge(addedTabId)
++}
++
+ /**
+  * Handle tab removing
+  */
