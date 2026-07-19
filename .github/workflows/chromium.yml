@@ -1,0 +1,25 @@
+name: Chromium MV3
+
+on: [pull_request]
+
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm run build.chromium
+      - run: npm run test.chromium
+      - run: npm run check.overlays
+      - run: npm run lint
+      - run: npm run build.ext.chromium
+      - uses: actions/upload-artifact@v6
+        with:
+          name: sidebery-chromium
+          path: dist/*chromium*.zip
