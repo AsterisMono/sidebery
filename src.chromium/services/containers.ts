@@ -43,7 +43,9 @@ export function parseCPID(cpid: string): browser.contextualIdentities.CreateDeta
   }
 }
 
-export function findUnique(): Container | undefined {
+export function findUnique(
+  _props?: Partial<browser.contextualIdentities.CreateDetails>
+): Container | undefined {
   return
 }
 
@@ -62,12 +64,12 @@ export function parseReopenRule(value: string): string | RegExp | undefined {
   return rule
 }
 
-export function getContainerFor(): string | undefined {
+export function getContainerFor(_url: string): string | undefined {
   return
 }
 
-export function sortContainers(): Container[] {
+export function sortContainers(_containers: Container[]): Container[] {
   return []
 }
 
-export function onContainerCreated(): void {}
+export function onContainerCreated(_info: browser.contextualIdentities.ChangeInfo): void {}
