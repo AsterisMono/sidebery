@@ -12,3 +12,35 @@ diff --git a/src/page.setup/components/settings.tabs.vue b/src/page.setup/compon
      .sub-title: .text {{translate('settings.nav_settings_tabs_preview')}}
      ToggleField.-no-separator(
        label="settings.tabs.preview"
+@@ -621,6 +621,7 @@
+   .wrapper(ref="nativeTabsEl")
+     .sub-title: .text {{translate('settings.nav_settings_tabs_native')}}
+     ToggleField.-no-separator(
++      v-if="false"
+       label="settings.hide_inactive_panel_tabs"
+       :value="Settings.state.hideInact"
+       dbg="hideInact"
+@@ -627,6 +628,7 @@
+       :default="DEFAULT_SETTINGS.hideInact"
+       @update:value="toggleHideInact")
+     ToggleField(
++      v-if="false"
+       label="settings.hide_folded_tabs"
+       :inactive="!Settings.state.tabsTree"
+       :value="Settings.state.hideFoldedTabs"
+@@ -635,6 +637,7 @@
+       @update:value="toggleHideFoldedTabs")
+     .sub-fields
+       SelectField(
++        v-if="false"
+         label="settings.hide_folded_parent"
+         optLabel="settings.hide_folded_parent_"
+         v-model:value="Settings.state.hideFoldedParent"
+@@ -644,6 +647,7 @@
+         :opts="Settings.getOpts('hideFoldedParent')"
+         @update:value="Settings.saveDebounced(150)")
+     ToggleField(
++      v-if="false"
+       label="settings.hide_unloaded_tabs"
+       :inactive="!Settings.state.tabsTree"
+       :value="Settings.state.hideUnloadedTabs"

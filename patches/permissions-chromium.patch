@@ -1,0 +1,64 @@
+# Chromium host access is origin-only; hide Firefox native tab-hiding permission.
+diff --git a/src/services/permissions.ts b/src/services/permissions.ts
+--- a/src/services/permissions.ts
++++ b/src/services/permissions.ts
+@@ -66,7 +66,7 @@ export async function load(): Promise<void> {
+   bookmarks = perms[8]
+   downloads = perms[9]
+ 
+-  reactive.webData = allUrls && webRequest && webRequestBlocking && proxy
++  reactive.webData = allUrls
+   reactive.tabHide = Permissions.tabHide
+   reactive.clipboardWrite = Permissions.clipboardWrite
+   reactive.clipboardRead = Permissions.clipboardRead
+@@ -96,7 +96,6 @@ export async function _request(...perms: RequestablePermission[]): Promise<boolean> {
+ 
+   if (perms.includes('<all_urls>')) {
+     origins.push('<all_urls>')
+-    permissions.push('webRequest', 'webRequestBlocking', 'proxy')
+     Utils.rmFromArray(perms, '<all_urls>')
+   }
+ 
+@@ -109,7 +108,7 @@ function onAdded(info: browser.permissions.Permissions) {
+   if (info.permissions?.includes('webRequest')) webRequest = true
+   if (info.permissions?.includes('webRequestBlocking')) webRequestBlocking = true
+   if (info.permissions?.includes('proxy')) proxy = true
+-  reactive.webData = allUrls && webRequest && webRequestBlocking && proxy
++  reactive.webData = allUrls
+ 
+   if (info.permissions?.includes('tabHide')) {
+     tabHide = true
+@@ -159,8 +158,8 @@ function onRemoved(info: browser.permissions.Permissions): void {
+   }
+ 
+   if (webDataRemoved) {
+-    reactive.webData = false
+-    removedWebDataHandler?.()
++    reactive.webData = allUrls
++    if (!reactive.webData) removedWebDataHandler?.()
+   }
+ 
+   if (info.permissions?.includes('tabHide')) {
+diff --git a/src/page.setup/components/popup.permissions.vue b/src/page.setup/components/popup.permissions.vue
+--- a/src/page.setup/components/popup.permissions.vue
++++ b/src/page.setup/components/popup.permissions.vue
+@@ -22,6 +22,7 @@
+       :note="translate('settings.perm.bookmarks_info')"
+       @update:value="togglePermBookmarks")
+   .permission(
++    v-if="false"
+     ref="tab_hide"
+     :data-highlight="SetupPage.reactive.permissions === 'tab_hide'"
+     @click="onHighlighClick('tab_hide')")
+@@ -109,9 +110,8 @@ function onHighlighClick(name: string): void {
+ 
+ function togglePermAllUrls(): void {
+   const origins = ['<all_urls>']
+-  const p = ['webRequest', 'webRequestBlocking', 'proxy']
+-  if (Permissions.reactive.webData) browser.permissions.remove({ origins, permissions: p })
+-  else browser.permissions.request({ origins, permissions: p })
++  if (Permissions.reactive.webData) browser.permissions.remove({ origins })
++  else browser.permissions.request({ origins })
+ }
+ 
+ function togglePermBookmarks(): void {
