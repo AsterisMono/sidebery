@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": { "src/*": ["./.staging-chromium/src/*"] }
+  },
+  "include": [".staging-chromium/src/**/*.ts", ".staging-chromium/src/**/*.vue"],
+  "exclude": [".staging-chromium/src/**/__tests__/*", ".staging-chromium/src/**/*.test.ts"]
+}

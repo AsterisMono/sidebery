@@ -16,6 +16,7 @@ jobs:
       - run: npm test
       - run: npm run build.chromium
       - run: npm run test.chromium
+      - run: npm run lint.types.chromium
       - run: npm run check.overlays
       - run: npm run lint
       - run: npm run build.ext.chromium

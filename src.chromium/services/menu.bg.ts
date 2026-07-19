@@ -3,7 +3,7 @@ import * as TabsBg from 'src/services/tabs.bg'
 import { MENU_IDS } from 'src/platform/menus.bg'
 
 export function createBrowserActionMenu(): void {
-  void browser.menus.removeAll().then(() => {
+  void Promise.resolve(browser.menus.removeAll()).then(() => {
     createSettingsMenu()
     TabsBg.createOpenFromCacheMenu()
   })

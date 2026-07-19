@@ -11,7 +11,7 @@ function inertContainer(conf: NewContainerConf): Container {
     id: DEFAULT_CONTAINER_ID,
     cookieStoreId: DEFAULT_CONTAINER_ID,
     reopenRules: conf.reopenRules ? [...conf.reopenRules] : [],
-  }
+  } as Container
 }
 
 export async function load(): Promise<void> {

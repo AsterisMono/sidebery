@@ -354,6 +354,7 @@ const sidebarAction = {
     const manifest = chrome.runtime.getManifest() as ReturnType<
       typeof chrome.runtime.getManifest
     > & {
+      name: string
       action?: { default_title?: string }
     }
     return manifest.action?.default_title ?? manifest.name
