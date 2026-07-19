@@ -1,0 +1,84 @@
+# Hide remaining container-only settings while preserving URL-based features.
+diff --git a/src/page.setup/components/settings.omnibox.vue b/src/page.setup/components/settings.omnibox.vue
+--- a/src/page.setup/components/settings.omnibox.vue
++++ b/src/page.setup/components/settings.omnibox.vue
+@@ -5,21 +5,6 @@ section(ref="el")
+   InfoField.-no-separator(label="settings.omnibox_desc" :value="translate('settings.omnibox_note')")
+   InfoField.-no-separator(label="settings.omnibox_cmds")
+   .sub-fields.-nosep
+-    ToggleField(
+-      label="settings.omni_reopen_in_ctr"
+-      v-model:value="Settings.state.omniReopenInCtr"
+-      dbg="omniReopenInCtr"
+-      :default="DEFAULT_SETTINGS.omniReopenInCtr"
+-      @update:value="Settings.saveDebounced(150)")
+-    .sub-fields.-nosep
+-      TextField.-inline(
+-        label="settings.omni_cmd_prefix"
+-        :or="''"
+-        :line="true"
+-        v-model:value="Settings.state.omniReopenInCtrPrefix"
+-        dbg="omniReopenInCtrPrefix"
+-        :default="DEFAULT_SETTINGS.omniReopenInCtrPrefix"
+-        @update:value="Settings.saveDebounced(150)")
+     ToggleField(
+       label="settings.omni_switch_to_panel"
+       v-model:value="Settings.state.omniSwitchToPanel"
+diff --git a/src/page.setup/components/settings.tabs.vue b/src/page.setup/components/settings.tabs.vue
+--- a/src/page.setup/components/settings.tabs.vue
++++ b/src/page.setup/components/settings.tabs.vue
+@@ -155,12 +155,6 @@
+     :default="DEFAULT_SETTINGS.tabsUrlInTooltip"
+     :opts="Settings.getOpts('tabsUrlInTooltip')"
+     @update:value="Settings.saveDebounced(150)")
+-  ToggleField(
+-    label="settings.tabs_container_in_tooltip"
+-    dbg="tabsContainerInTooltip"
+-    v-model:value="Settings.state.tabsContainerInTooltip"
+-    :default="DEFAULT_SETTINGS.tabsContainerInTooltip"
+-    @update:value="Settings.saveDebounced(150)")
+   ToggleField(
+     label="settings.show_new_tab_btns"
+     dbg="showNewTabBtns"
+@@ -468,16 +462,6 @@
+       dbg="colorizeTabs"
+       :default="DEFAULT_SETTINGS.colorizeTabs"
+       @update:value="Settings.saveDebounced(150)")
+-    .sub-fields
+-      SelectField(
+-        label="settings.colorize_tabs_src"
+-        optLabel="settings.colorize_tabs_src_"
+-        v-model:value="Settings.state.colorizeTabsSrc"
+-        dbg="colorizeTabsSrc"
+-        :default="DEFAULT_SETTINGS.colorizeTabsSrc"
+-        :inactive="!Settings.state.colorizeTabs"
+-        :opts="Settings.getOpts('colorizeTabsSrc')"
+-        @update:value="Settings.saveDebounced(150)")
+     ToggleField(
+       label="settings.colorize_branches"
+       :inactive="!Settings.state.tabsTree"
+diff --git a/src/components/popup.tab-move-rules.vue b/src/components/popup.tab-move-rules.vue
+--- a/src/components/popup.tab-move-rules.vue
++++ b/src/components/popup.tab-move-rules.vue
+@@ -30,13 +30,6 @@
+       v-model:value="newRuleName"
+       :or="'...'"
+       :line="true")
+-    SelectField.-no-separator.-compact(
+-      label="popup.tab_move_rules.rule_container_label"
+-      noneOpt="-"
+-      v-model:value="newRuleContainerId"
+-      :opts="availableContainersOpts"
+-      :inline="false"
+-      :folded="true")
+     TextField.-compact(
+       label="popup.tab_move_rules.rule_url_label"
+       v-model:value="newRuleURL"
+@@ -68,7 +61,6 @@ import * as Popups from 'src/services/popups.fg'
+ import * as Info from 'src/services/info'
+ import * as SidebarConf from 'src/services/sidebar-config.fg'
+ import TextField from './text-field.vue'
+-import SelectField from './select-field.vue'
+ import ToggleField from './toggle-field.vue'
+ 
+ interface MoveRulePreview {
