@@ -124,8 +124,18 @@ interface ChromiumWebNavigationDetails {
   url: string
 }
 
+interface ChromiumWebNavigationCommittedDetails extends ChromiumWebNavigationDetails {
+  transitionQualifiers: (
+    | 'client_redirect'
+    | 'server_redirect'
+    | 'forward_back'
+    | 'from_address_bar'
+  )[]
+}
+
 interface ChromiumWebNavigationApi {
   onBeforeNavigate: ChromiumEvent<(details: ChromiumWebNavigationDetails) => void>
+  onCommitted: ChromiumEvent<(details: ChromiumWebNavigationCommittedDetails) => void>
 }
 
 interface ChromiumAlarm {

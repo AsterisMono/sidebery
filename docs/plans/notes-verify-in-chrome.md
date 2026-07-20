@@ -176,6 +176,9 @@ code contains no DOM/canvas use, and media injection remains file-based.
 - Type a slow-loading destination into the address bar of the active tab. Sidebery should show
   the tab as loading as soon as navigation begins, before the destination document commits or
   becomes visible. Loading a subframe must not put an otherwise complete tab back into loading.
+- Navigate between two pages with different titles in one tab, then use Chrome's Back and Forward
+  buttons. Sidebery should restore the corresponding title immediately after each history entry
+  commits, including when Chrome restores the page from its back/forward cache.
 - Click **New Tab** repeatedly with the default panel, a URL shortcut, and Settings both with and
   without an existing setup tab. Confirm Chrome reports no unexpected `cookieStoreId`,
   `discarded`, `title`, or `openInReaderMode` create property.

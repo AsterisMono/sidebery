@@ -48,6 +48,16 @@ function normalizeTabUpdate(
   return { ...changeInfo, title: tab.title }
 }
 
+function dispatchTabUpdate(
+  tabId: ID,
+  changeInfo: browser.tabs.ChangeInfo,
+  tab: browser.tabs.Tab
+): void {
+  for (const wrapper of [...tabsOnUpdatedWrappers.values()]) {
+    wrapper(tabId, changeInfo, tab)
+  }
+}
+
 async function dispatchSyntheticTabUpdate(
   tabId: ID,
   changeInfo: browser.tabs.ChangeInfo,
@@ -61,9 +71,7 @@ async function dispatchSyntheticTabUpdate(
   }
 
   const tab = normalizeTabTitle({ ...nativeTab, ...tabUpdate })
-  for (const wrapper of [...tabsOnUpdatedWrappers.values()]) {
-    wrapper(tabId, changeInfo, tab)
-  }
+  dispatchTabUpdate(tabId, changeInfo, tab)
 }
 
 chrome.webNavigation.onBeforeNavigate.addListener(details => {
@@ -73,6 +81,25 @@ chrome.webNavigation.onBeforeNavigate.addListener(details => {
     { status: 'loading' },
     { pendingUrl: details.url, status: 'loading' }
   )
+})
+
+chrome.webNavigation.onCommitted.addListener(details => {
+  if (
+    details.frameId !== 0 ||
+    details.tabId < 0 ||
+    !details.transitionQualifiers.includes('forward_back')
+  ) {
+    return
+  }
+
+  void chrome.tabs
+    .get(details.tabId)
+    .then(normalizeTabTitle)
+    .then(tab => {
+      if (tab.title === undefined) return
+      dispatchTabUpdate(details.tabId, { title: tab.title }, tab)
+    })
+    .catch(() => {})
 })
 
 const tabsOnUpdated = {

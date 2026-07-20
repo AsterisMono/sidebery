@@ -61,6 +61,9 @@ let tabsHighlight: ReturnType<typeof vi.fn>
 let webNavigationOnBeforeNavigate: ReturnType<
   typeof createEvent<(details: ChromiumWebNavigationDetails) => void>
 >
+let webNavigationOnCommitted: ReturnType<
+  typeof createEvent<(details: ChromiumWebNavigationCommittedDetails) => void>
+>
 let windowsCreate: ReturnType<typeof vi.fn>
 let windowsOnRemoved: ReturnType<typeof createEvent<(windowId: ID) => void>>
 let sessionStorage: ReturnType<typeof createStorageArea>
@@ -106,6 +109,9 @@ async function loadShim(): Promise<typeof browser> {
   tabsHighlight = vi.fn().mockResolvedValue({ id: 7 })
   webNavigationOnBeforeNavigate = createEvent<
     (details: ChromiumWebNavigationDetails) => void
+  >()
+  webNavigationOnCommitted = createEvent<
+    (details: ChromiumWebNavigationCommittedDetails) => void
   >()
   windowsCreate = vi.fn().mockResolvedValue({ id: 43, incognito: false })
   windowsOnRemoved = createEvent<(windowId: ID) => void>()
@@ -160,7 +166,10 @@ async function loadShim(): Promise<typeof browser> {
     },
     scripting: { executeScript: scriptingExecute },
     search: { query: searchQuery },
-    webNavigation: { onBeforeNavigate: webNavigationOnBeforeNavigate },
+    webNavigation: {
+      onBeforeNavigate: webNavigationOnBeforeNavigate,
+      onCommitted: webNavigationOnCommitted,
+    },
     alarms: {},
     action: {},
     commands: { getAll: vi.fn().mockResolvedValue([]), onCommand: createEvent() },
@@ -254,6 +263,55 @@ describe('tabs.onUpdated', () => {
     webNavigationOnBeforeNavigate.emit({
       frameId: 2,
       tabId: 3,
+      url: 'https://example.com/frame',
+    })
+
+    await Promise.resolve()
+    expect(listener).not.toHaveBeenCalled()
+    expect(tabsGet).not.toHaveBeenCalled()
+  })
+
+  test('refreshes the title after back or forward navigation commits', async () => {
+    const listener = vi.fn()
+    browser.tabs.onUpdated.addListener(listener, { properties: ['title'] })
+    tabsGet.mockResolvedValueOnce({
+      id: 3,
+      windowId: 7,
+      status: 'loading',
+      title: 'Restored history title',
+      url: 'https://example.com/previous',
+    } as browser.tabs.Tab)
+
+    webNavigationOnCommitted.emit({
+      frameId: 0,
+      tabId: 3,
+      transitionQualifiers: ['forward_back'],
+      url: 'https://example.com/previous',
+    })
+
+    await vi.waitFor(() => {
+      expect(listener).toHaveBeenCalledWith(
+        3,
+        { title: 'Restored history title' },
+        expect.objectContaining({ title: 'Restored history title' })
+      )
+    })
+  })
+
+  test('does not synthesize titles for ordinary or subframe commits', async () => {
+    const listener = vi.fn()
+    browser.tabs.onUpdated.addListener(listener, { properties: ['title'] })
+
+    webNavigationOnCommitted.emit({
+      frameId: 0,
+      tabId: 3,
+      transitionQualifiers: ['from_address_bar'],
+      url: 'https://example.com/typed',
+    })
+    webNavigationOnCommitted.emit({
+      frameId: 4,
+      tabId: 3,
+      transitionQualifiers: ['forward_back'],
       url: 'https://example.com/frame',
     })
 
