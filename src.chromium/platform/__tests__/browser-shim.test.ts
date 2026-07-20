@@ -247,9 +247,69 @@ describe('tabs.onUpdated', () => {
     expect(listener).toHaveBeenCalledOnce()
     expect(tabsOnUpdated.listeners.size).toBe(1)
   })
+
+  test('uses the navigation URL while Chrome reports an empty loading title', () => {
+    const listener = vi.fn()
+    browser.tabs.onUpdated.addListener(listener)
+    const tab = {
+      id: 3,
+      windowId: 7,
+      title: '',
+      url: 'https://example.com/committed',
+    } as browser.tabs.Tab
+
+    tabsOnUpdated.emit(3, { title: '' }, tab)
+
+    expect(listener).toHaveBeenCalledWith(
+      3,
+      { title: 'https://example.com/committed' },
+      expect.objectContaining({ title: 'https://example.com/committed' })
+    )
+  })
 })
 
 describe('tabs creation and activation semantics', () => {
+  test('uses pendingUrl as the temporary title of a background link tab', () => {
+    const listener = vi.fn()
+    browser.tabs.onCreated.addListener(listener)
+    const nativeTab = {
+      id: 101,
+      windowId: 7,
+      index: 3,
+      active: false,
+      title: '',
+      url: '',
+      pendingUrl: 'https://example.com/background-link',
+    } as browser.tabs.Tab & { pendingUrl: string }
+
+    tabsOnCreated.emit(nativeTab)
+
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 101,
+        title: 'https://example.com/background-link',
+        pendingUrl: 'https://example.com/background-link',
+      })
+    )
+    expect(nativeTab.title).toBe('')
+  })
+
+  test('normalizes loading titles returned by tab queries', async () => {
+    vi.mocked(chrome.tabs.query).mockResolvedValueOnce([
+      {
+        id: 102,
+        windowId: 7,
+        title: '',
+        url: '',
+        pendingUrl: 'https://example.com/queried-link',
+      } as browser.tabs.Tab & { pendingUrl: string },
+    ])
+
+    await expect(browser.tabs.query({ windowId: 7 })).resolves.toEqual([
+      expect.objectContaining({ title: 'https://example.com/queried-link' }),
+    ])
+  })
+
   test('strips Firefox-only create and update properties', async () => {
     await browser.tabs.create({
       url: 'https://example.com',

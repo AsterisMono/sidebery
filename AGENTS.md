@@ -128,6 +128,9 @@ For runtime, manifest, service-worker, or browser integration changes, also foll
 `docs/plans/notes-verify-in-chrome.md`; unit tests do not replace loading the extension in a current
 Chrome/Chromium build when behavior is browser-dependent.
 
+For bug fixes, prefer manual verification in a real interactive browser and explicitly ask the
+human to perform the relevant check. Do not use a headless browser for testing or verification.
+
 ## Project constraints
 
 - Chromium distribution is self-hosted; keep the pinned public `manifest.key` stable.

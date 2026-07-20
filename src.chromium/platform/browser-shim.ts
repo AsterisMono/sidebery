@@ -24,6 +24,30 @@ const tabsOnUpdatedWrappers = new Map<
   browser.tabs.UpdatedListener
 >()
 
+type ChromiumTab = browser.tabs.Tab & { pendingUrl?: string }
+
+/**
+ * Chrome can expose an empty title while a navigation is pending, whereas
+ * Firefox uses the destination URL as the tab's temporary label. Preserve
+ * Sidebery's Firefox-facing contract until Chrome reports the document title.
+ */
+function normalizeTabTitle(nativeTab: browser.tabs.Tab): browser.tabs.Tab {
+  if (nativeTab.title) return nativeTab
+  const tab = nativeTab as ChromiumTab
+  const navigationUrl = tab.pendingUrl || tab.url
+  if (!navigationUrl) return nativeTab
+  return { ...nativeTab, title: navigationUrl }
+}
+
+function normalizeTabUpdate(
+  changeInfo: browser.tabs.ChangeInfo,
+  tab: browser.tabs.Tab
+): browser.tabs.ChangeInfo {
+  if (changeInfo.title !== '') return changeInfo
+  if (!tab.title) return changeInfo
+  return { ...changeInfo, title: tab.title }
+}
+
 const tabsOnUpdated = {
   addListener(
     listener: browser.tabs.UpdatedListener,
@@ -36,27 +60,19 @@ const tabsOnUpdated = {
     }
     nativeTabsOnUpdated.removeListener(listener)
 
-    const hasFilter =
-      filter?.tabId !== undefined ||
-      filter?.windowId !== undefined ||
-      (filter?.properties !== undefined && filter.properties.length > 0)
-    if (!hasFilter) {
-      nativeTabsOnUpdated.addListener(listener)
-      return
-    }
-
     const wrapper: browser.tabs.UpdatedListener = (tabId, changeInfo, tab) => {
-      if (filter.tabId !== undefined && tabId !== filter.tabId) return
-      if (filter.windowId !== undefined && tab.windowId !== filter.windowId) return
+      if (filter?.tabId !== undefined && tabId !== filter.tabId) return
+      if (filter?.windowId !== undefined && tab.windowId !== filter.windowId) return
       if (
-        filter.properties?.length &&
+        filter?.properties?.length &&
         !filter.properties.some(property =>
           Object.prototype.hasOwnProperty.call(changeInfo, property)
         )
       ) {
         return
       }
-      listener(tabId, changeInfo, tab)
+      const normalizedTab = normalizeTabTitle(tab)
+      listener(tabId, normalizeTabUpdate(changeInfo, normalizedTab), normalizedTab)
     }
 
     tabsOnUpdatedWrappers.set(listener, wrapper)
@@ -93,10 +109,10 @@ async function dispatchTabCreated(nativeTab: browser.tabs.Tab): Promise<void> {
   const duplicate = pendingDuplicate
   const duplicateTabId = duplicate ? await duplicate.nativeTabId : undefined
   let isPendingDuplicate = false
-  let tab = nativeTab
+  let tab = normalizeTabTitle(nativeTab)
   if (duplicate && duplicateTabId === nativeTab.id) {
     isPendingDuplicate = true
-    tab = { ...nativeTab, index: duplicate.targetIndex }
+    tab = { ...tab, index: duplicate.targetIndex }
   }
 
   const listenerResults: unknown[] = []
@@ -221,6 +237,15 @@ const tabs = {
   onActivated: tabsOnActivated,
   executeScript,
 
+  async query(details: browser.tabs.TabsQueryOptions): Promise<browser.tabs.Tab[]> {
+    const nativeTabs = await chrome.tabs.query(details)
+    return nativeTabs.map(normalizeTabTitle)
+  },
+
+  async get(tabId: ID): Promise<browser.tabs.Tab> {
+    return normalizeTabTitle(await chrome.tabs.get(tabId))
+  },
+
   async create(details: browser.tabs.CreateProperties): Promise<browser.tabs.Tab> {
     const {
       cookieStoreId: _cookieStoreId,
@@ -229,7 +254,7 @@ const tabs = {
       title: _title,
       ...chromiumDetails
     } = details
-    return chrome.tabs.create(chromiumDetails)
+    return normalizeTabTitle(await chrome.tabs.create(chromiumDetails))
   },
 
   async update(
@@ -247,8 +272,10 @@ const tabs = {
       ...chromiumDetails
     } = firefoxDetails
     if (chromiumDetails.openerTabId === tabId) delete chromiumDetails.openerTabId
-    if (tabId === undefined) return chrome.tabs.update(chromiumDetails)
-    return chrome.tabs.update(tabId, chromiumDetails)
+    if (tabId === undefined) {
+      return normalizeTabTitle(await chrome.tabs.update(chromiumDetails))
+    }
+    return normalizeTabTitle(await chrome.tabs.update(tabId, chromiumDetails))
   },
 
   duplicate(tabId: ID, details: browser.tabs.DuplOpts = {}): Promise<browser.tabs.Tab> {
@@ -338,7 +365,7 @@ async function duplicateTab(tabId: ID, details: browser.tabs.DuplOpts): Promise<
       if (duplicate) flushDuplicateActivations(duplicate)
     }
 
-    return chrome.tabs.get(duplicatedTab.id)
+    return normalizeTabTitle(await chrome.tabs.get(duplicatedTab.id))
   } finally {
     duplicate?.resolveNativeTabId(undefined)
     duplicate?.resolveCreatedProcessed()
