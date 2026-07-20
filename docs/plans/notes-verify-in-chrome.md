@@ -173,6 +173,9 @@ code contains no DOM/canvas use, and media injection remains file-based.
 
 ## Round 1 regression checks
 
+- Type a slow-loading destination into the address bar of the active tab. Sidebery should show
+  the tab as loading as soon as navigation begins, before the destination document commits or
+  becomes visible. Loading a subframe must not put an otherwise complete tab back into loading.
 - Click **New Tab** repeatedly with the default panel, a URL shortcut, and Settings both with and
   without an existing setup tab. Confirm Chrome reports no unexpected `cookieStoreId`,
   `discarded`, `title`, or `openInReaderMode` create property.

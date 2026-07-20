@@ -58,6 +58,9 @@ let tabsGet: ReturnType<typeof vi.fn>
 let tabsMove: ReturnType<typeof vi.fn>
 let tabsDiscard: ReturnType<typeof vi.fn>
 let tabsHighlight: ReturnType<typeof vi.fn>
+let webNavigationOnBeforeNavigate: ReturnType<
+  typeof createEvent<(details: ChromiumWebNavigationDetails) => void>
+>
 let windowsCreate: ReturnType<typeof vi.fn>
 let windowsOnRemoved: ReturnType<typeof createEvent<(windowId: ID) => void>>
 let sessionStorage: ReturnType<typeof createStorageArea>
@@ -101,6 +104,9 @@ async function loadShim(): Promise<typeof browser> {
   }))
   tabsDiscard = vi.fn().mockImplementation(async id => ({ id, windowId: 7, discarded: true }))
   tabsHighlight = vi.fn().mockResolvedValue({ id: 7 })
+  webNavigationOnBeforeNavigate = createEvent<
+    (details: ChromiumWebNavigationDetails) => void
+  >()
   windowsCreate = vi.fn().mockResolvedValue({ id: 43, incognito: false })
   windowsOnRemoved = createEvent<(windowId: ID) => void>()
   sessionStorage = createStorageArea()
@@ -154,6 +160,7 @@ async function loadShim(): Promise<typeof browser> {
     },
     scripting: { executeScript: scriptingExecute },
     search: { query: searchQuery },
+    webNavigation: { onBeforeNavigate: webNavigationOnBeforeNavigate },
     alarms: {},
     action: {},
     commands: { getAll: vi.fn().mockResolvedValue([]), onCommand: createEvent() },
@@ -211,6 +218,50 @@ test('keeps adapters isolated from Chromium native browser binding updates', () 
 })
 
 describe('tabs.onUpdated', () => {
+  test('reports top-frame navigation as loading before it commits', async () => {
+    const listener = vi.fn()
+    browser.tabs.onUpdated.addListener(listener, { properties: ['status'] })
+    tabsGet.mockResolvedValueOnce({
+      id: 3,
+      windowId: 7,
+      status: 'complete',
+      title: 'Current page',
+      url: 'https://example.com/current',
+    } as browser.tabs.Tab)
+
+    webNavigationOnBeforeNavigate.emit({
+      frameId: 0,
+      tabId: 3,
+      url: 'https://example.com/destination',
+    })
+
+    await vi.waitFor(() => {
+      expect(listener).toHaveBeenCalledWith(
+        3,
+        { status: 'loading' },
+        expect.objectContaining({
+          pendingUrl: 'https://example.com/destination',
+          status: 'loading',
+        })
+      )
+    })
+  })
+
+  test('ignores subframe navigation starts', async () => {
+    const listener = vi.fn()
+    browser.tabs.onUpdated.addListener(listener, { properties: ['status'] })
+
+    webNavigationOnBeforeNavigate.emit({
+      frameId: 2,
+      tabId: 3,
+      url: 'https://example.com/frame',
+    })
+
+    await Promise.resolve()
+    expect(listener).not.toHaveBeenCalled()
+    expect(tabsGet).not.toHaveBeenCalled()
+  })
+
   test('filters properties and ids while preserving listener identity', () => {
     const listener = vi.fn()
     browser.tabs.onUpdated.addListener(listener, {

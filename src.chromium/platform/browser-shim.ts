@@ -48,6 +48,33 @@ function normalizeTabUpdate(
   return { ...changeInfo, title: tab.title }
 }
 
+async function dispatchSyntheticTabUpdate(
+  tabId: ID,
+  changeInfo: browser.tabs.ChangeInfo,
+  tabUpdate: Partial<ChromiumTab> = {}
+): Promise<void> {
+  let nativeTab: browser.tabs.Tab
+  try {
+    nativeTab = await chrome.tabs.get(tabId)
+  } catch {
+    return
+  }
+
+  const tab = normalizeTabTitle({ ...nativeTab, ...tabUpdate })
+  for (const wrapper of [...tabsOnUpdatedWrappers.values()]) {
+    wrapper(tabId, changeInfo, tab)
+  }
+}
+
+chrome.webNavigation.onBeforeNavigate.addListener(details => {
+  if (details.frameId !== 0 || details.tabId < 0) return
+  void dispatchSyntheticTabUpdate(
+    details.tabId,
+    { status: 'loading' },
+    { pendingUrl: details.url, status: 'loading' }
+  )
+})
+
 const tabsOnUpdated = {
   addListener(
     listener: browser.tabs.UpdatedListener,

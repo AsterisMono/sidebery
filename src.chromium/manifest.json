@@ -20,6 +20,7 @@
   "permissions": [
     "activeTab",
     "tabs",
+    "webNavigation",
     "storage",
     "unlimitedStorage",
     "sessions",

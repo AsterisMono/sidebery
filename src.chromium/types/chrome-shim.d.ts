@@ -118,6 +118,16 @@ interface ChromiumSearchApi {
   query(query: ChromiumSearchQuery): Promise<void>
 }
 
+interface ChromiumWebNavigationDetails {
+  frameId: number
+  tabId: number
+  url: string
+}
+
+interface ChromiumWebNavigationApi {
+  onBeforeNavigate: ChromiumEvent<(details: ChromiumWebNavigationDetails) => void>
+}
+
 interface ChromiumAlarm {
   name: string
   scheduledTime: number
@@ -152,6 +162,7 @@ interface ChromiumApi {
   sidePanel: ChromiumSidePanelApi
   scripting: ChromiumScriptingApi
   search: ChromiumSearchApi
+  webNavigation: ChromiumWebNavigationApi
   alarms: ChromiumAlarmsApi
   action: typeof browser.browserAction
   commands: typeof browser.commands
